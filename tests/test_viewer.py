@@ -271,12 +271,12 @@ class ViewerTests(unittest.TestCase):
         self.page.click("#views button[data-v=Rooms]")
         self.assertEqual(self.page.inner_text("#info"), "3 rooms")   # G7, SLab from config + W from the file
         self.page.click("button[data-avail='SLab']")
-        self.assertEqual(self.page.locator("#room-avail td[data-d='1'][data-p='3']").get_attribute("title"), "C7 Science with DD")
+        self.assertEqual(self.page.locator("#room-avail td[data-d='1'][data-p='3']").get_attribute("title"), "C07Sc_1 with DD")   # no display name in the fixture
         self.page.click("#room-avail td[data-d='1'][data-p='3']")
         self.page.fill("tr[data-r=G7] input[data-f=seats]", "0"); self.page.press("tr[data-r=G7] input[data-f=seats]", "Tab")
         self.page.click("#views button[data-v=Issues]")
         issues = self.page.inner_text("#issues")
-        self.assertIn("SLab has C7 Science but is marked unavailable", issues)
+        self.assertIn("SLab has C07Sc_1 but is marked unavailable", issues)
         self.assertIn("C07E_1 has 1 students but G7 seats 0", issues)
         # Teacher limits: AA teaches 1 period; cap at 0 and mark a period unavailable.
         self.page.click("#views button[data-v=Teachers]")
