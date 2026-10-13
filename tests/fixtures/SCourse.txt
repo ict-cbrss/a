@@ -1,0 +1,5 @@
+900001,Test Student One,7,C07E_1,NS,,,7
+900001,Test Student One,7,C07MA_1,NS,,,7
+900001,Test Student One,7,C07Sc_1,F,Athens,,7
+900002,Test Student Two,8,C08E_1,M,,,8
+900002,Test Student Two,8,C08Old_1,NS,,,8

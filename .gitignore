@@ -1,0 +1,6 @@
+# Student data and generated output - never commit
+data/
+out/
+*.html
+!tt/viewer.html
+__pycache__/

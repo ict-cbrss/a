@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Timetable Viewer</title>
+<style>
+:root {
+  --bg: #ffffff; --fg: #1d1d1f; --muted: #6b6b70; --line: #dcdce0;
+  --head: #f3f3f5; --cell: #eef4ff; --cell-fg: #12305c;
+  --bad: #fde8e8; --bad-fg: #9b1c1c; --warn-fg: #8a5a00; --accent: #2557c7;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #161618; --fg: #ececf0; --muted: #9a9aa2; --line: #34343a;
+    --head: #222226; --cell: #1d2b44; --cell-fg: #cfe0ff;
+    --bad: #4a1f1f; --bad-fg: #ffc9c9; --warn-fg: #f2c46d; --accent: #7aa2ff;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #161618; --fg: #ececf0; --muted: #9a9aa2; --line: #34343a;
+  --head: #222226; --cell: #1d2b44; --cell-fg: #cfe0ff;
+  --bad: #4a1f1f; --bad-fg: #ffc9c9; --warn-fg: #f2c46d; --accent: #7aa2ff;
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 16px; background: var(--bg); color: var(--fg);
+  font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+h1 { font-size: 20px; margin: 0 0 12px; }
+.bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+button, select { font: inherit; color: var(--fg); background: var(--head);
+  border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; }
+button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+select { min-width: 220px; max-width: 100%; }
+.summary { color: var(--muted); margin-bottom: 12px; }
+.wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; }
+table { border-collapse: collapse; width: 100%; }
+th, td { border: 1px solid var(--line); padding: 4px; vertical-align: top; }
+th { background: var(--head); font-weight: 600; position: sticky; top: 0; }
+th.week { border-left: 2px solid var(--muted); }
+td.week { border-left: 2px solid var(--muted); }
+td { min-width: 92px; font-size: 12px; }
+.l { background: var(--cell); color: var(--cell-fg); border-radius: 4px; padding: 2px 4px; margin: 1px 0; }
+.l b { display: block; }
+td.clash .l { background: var(--bad); color: var(--bad-fg); }
+ul.issues { padding-left: 18px; }
+ul.issues li.error { color: var(--bad-fg); }
+ul.issues li.warning { color: var(--warn-fg); }
+.hidden { display: none; }
+</style>
+</head>
+<body>
+<h1>Timetable Viewer</h1>
+<div class="bar" id="views"></div>
+<div class="bar"><select id="pick" aria-label="Choose"></select><span id="info" class="summary"></span></div>
+<div id="grid" class="wrap"></div>
+<div id="issues" class="hidden"></div>
+<script>
+const DATA = /*DATA*/null;
+const L = DATA.lessons;
+const days = [...new Set(L.map(l => l.day))].sort((a, b) => a - b);
+const periods = [...new Set(L.map(l => l.period))].sort((a, b) => a - b);
+const uniq = k => [...new Set(L.map(l => l[k]))].sort((a, b) => String(a).localeCompare(String(b), undefined, {numeric: true}));
+const classesOf = {};
+for (const [sid, c] of DATA.enrolments) (classesOf[sid] ||= new Set()).add(c);
+const studentName = Object.fromEntries(DATA.students.map(([id, n, y]) => [id, `${n} (Yr ${y}, ${id})`]));
+const counts = {};
+for (const [, c] of DATA.enrolments) counts[c] = (counts[c] || 0) + 1;
+
+const VIEWS = {
+  Teacher: { opts: () => uniq("teacher"), label: t => `${t} — ${DATA.load[t] || 0} periods/cycle`, match: (l, t) => l.teacher === t, clash: true },
+  Room:    { opts: () => uniq("room"), label: r => r, match: (l, r) => l.room === r, clash: true },
+  Class:   { opts: () => uniq("class_code"), label: c => `${c} — ${counts[c] || 0} students`, match: (l, c) => l.class_code === c },
+  Year:    { opts: () => uniq("year"), label: y => `Year ${y}`, match: (l, y) => l.year === y },
+  Student: { opts: () => DATA.students.map(s => s[0]), label: id => studentName[id], match: (l, id) => classesOf[id]?.has(l.class_code), clash: true },
+  Issues:  {},
+};
+let view = "Teacher";
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+
+function renderViews() {
+  const errs = DATA.issues.filter(i => i.severity === "error").length;
+  document.getElementById("views").innerHTML = Object.keys(VIEWS).map(v =>
+    `<button aria-pressed="${v === view}" data-v="${v}">${v === "Issues" ? `Issues (${errs} errors)` : v}</button>`).join("");
+}
+
+function renderPick() {
+  const v = VIEWS[view], pick = document.getElementById("pick");
+  pick.classList.toggle("hidden", view === "Issues");
+  if (view === "Issues") return;
+  pick.innerHTML = v.opts().map(o => `<option value="${esc(o)}">${esc(v.label(o))}</option>`).join("");
+}
+
+function renderGrid() {
+  const grid = document.getElementById("grid"), issues = document.getElementById("issues");
+  grid.classList.toggle("hidden", view === "Issues");
+  issues.classList.toggle("hidden", view !== "Issues");
+  if (view === "Issues") {
+    issues.innerHTML = DATA.issues.length ? `<ul class="issues">${DATA.issues.map(i =>
+      `<li class="${i.severity}">${i.day ? `Day ${i.day} P${i.period}: ` : ""}${esc(i.message)}</li>`).join("")}</ul>`
+      : "<p>No issues found.</p>";
+    document.getElementById("info").textContent = "";
+    return;
+  }
+  const v = VIEWS[view], key = document.getElementById("pick").value;
+  const mine = L.filter(l => v.match(l, key));
+  const cell = {};
+  for (const l of mine) ((cell[`${l.day},${l.period}`] ||= {})[l.class_code] ||= []).push(l);
+  let clashes = 0;
+  let html = `<table><thead><tr><th>Period</th>${days.map(d =>
+    `<th class="${d % 5 === 1 && d > 1 ? "week" : ""}">Day ${d}</th>`).join("")}</tr></thead><tbody>`;
+  for (const p of periods) {
+    html += `<tr><th>P${p}</th>`;
+    for (const d of days) {
+      const byClass = cell[`${d},${p}`] || {};
+      const isClash = v.clash && Object.keys(byClass).length > 1;
+      if (isClash) clashes++;
+      const cls = [isClash ? "clash" : "", d % 5 === 1 && d > 1 ? "week" : ""].join(" ");
+      html += `<td class="${cls}">${Object.entries(byClass).map(([c, ls]) =>
+        `<div class="l"><b>${esc(c)}</b>${esc([...new Set(ls.map(l => l.room))].join("/"))} · ${esc(ls.map(l => l.teacher).join(", "))}</div>`).join("")}</td>`;
+    }
+    html += "</tr>";
+  }
+  grid.innerHTML = html + "</tbody></table>";
+  document.getElementById("info").textContent = `${mine.length} rows` + (v.clash ? ` · ${clashes} clashing slots` : "");
+}
+
+document.getElementById("views").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  view = b.dataset.v; renderViews(); renderPick(); renderGrid();
+});
+document.getElementById("pick").addEventListener("change", renderGrid);
+renderViews(); renderPick(); renderGrid();
+</script>
+</body>
+</html>
