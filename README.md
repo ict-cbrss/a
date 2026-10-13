@@ -22,6 +22,8 @@ python -m tt solve  data/TTable.txt data/SCourse.txt -o data/solved -t 120   # c
 python -m tt next-term timetable/TTable.txt "Term 1 2027" -s data/SCourse.txt -r end-of-year   # plan next term in next/
 python -m tt start-term next                                   # when the term starts: make next/ the current term
 python -m tt rollover data/TTable.txt data/SCourse.txt -o data/rolled --advance 11 --leave 12   # students up a year, on its own
+python -m tt backup  data/TTable.txt data/SCourse.txt -o data/backups    # one zip of timetable, students and config
+python -m tt restore data/backups/backup-term-4-2026-20261013-0900.zip -o data/restored
 python -m unittest                                             # tests (synthetic data only)
 PLAYWRIGHT_CHROMIUM=/path/to/chromium python -m unittest       # also runs the browser tests (pip install playwright)
 ```
@@ -52,6 +54,34 @@ list of your changes. Clashing cells are red.
 New lessons copy their grid columns (TTable columns 7–9) from an existing
 lesson of the same class. Lessons can be placed on any day or period the
 config describes (or, without a config, any in the original file).
+
+### Files menu: TASS files, students, versions, backups, save as
+
+**Files ▾** (top right) works without the command line or the repo:
+
+- **Open TTable.txt / Open SCourse.txt** replaces the timetable or the
+  enrolments with a file exported from TASS or Timetabler. This is how the
+  cloud-built page gets its students: open it, load SCourse.txt from your
+  computer, and the Student view and student-clash check work; the student
+  data stays in your browser and only leaves it through Export SCourse.txt.
+- **Add students from a TASS list** reads a CSV with a header row naming a
+  student code, a name (or surname and given names) and a year column, as
+  TASS's student export does. Each new student is enrolled in the classes
+  that three quarters or more of their year already take; a year with no
+  students yet (the new Year 7) gets every class of that year, so remove the
+  half-year groups they are not in from the Student view. Students already
+  on the page are skipped.
+- **Save a version…** keeps a named copy of everything on the page in the
+  browser; restore, download (.json) or delete it from the list. One is
+  saved automatically before each Reset. Restoring is itself an undoable
+  edit.
+- **Download a backup (.json) / Open a backup** moves the whole state to a
+  file and back, between browsers or computers.
+- **Save as a copy of this page (.html)** writes a new editor file with the
+  current state as its starting point: a clean baseline for "what if"
+  work, or a dated copy to keep.
+
+Every edit, including these, goes through Undo/Redo and the Changes list.
 
 ### Print view
 
@@ -149,6 +179,13 @@ which copies `next/TTable.txt` to `timetable/` and `next/config/` to
 for you to delete. Import `next/TTable.txt` and `next/SCourse.txt` into
 TASS. `SCourse.txt` and `rollover-report.txt` are ignored by git everywhere
 because they hold student names.
+
+**Backups.** Every committed `timetable/TTable.txt` and `config/` is in git
+history, `start-term` files each finished term under `archive/`, and the
+editor keeps versions in the browser. `python -m tt backup` zips the
+timetable, the student file and `config/` into one dated file for anything
+git does not hold (the student file, work between commits); `python -m tt
+restore` unpacks it into a folder. `backups/` is ignored by git.
 
 **Rollover** (`-r`, or `python -m tt rollover` on its own) moves students
 between year groups. The two moments in the year (NSW: Year 12 starts in

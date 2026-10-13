@@ -18,6 +18,13 @@ except ImportError:  # pragma: no cover
 FIX = Path(__file__).with_name("fixtures")
 
 
+def formats_sorted(raw):
+    """The bytes the editor exports for a TTable.txt: stable-sorted by day and period."""
+    rows = [r for r in raw.decode().split("\r\n") if r]
+    rows.sort(key=lambda r: (int(r.split(",")[0]), int(r.split(",")[1])))
+    return ("\r\n".join(rows) + "\r\n").encode()
+
+
 @unittest.skipUnless(sync_playwright, "playwright not installed")
 class ViewerTests(unittest.TestCase):
     @classmethod
@@ -145,6 +152,88 @@ class ViewerTests(unittest.TestCase):
         with self.page.expect_download() as d:
             self.page.click("#save-menu button[data-save=dl-rooms]")
         self.assertEqual(d.value.suggested_filename, "rooms.csv")
+
+    def choose_file(self, button, path, dialog=False):
+        """Pick a file from the Files menu; the page reads it asynchronously, so wait for the edit count or the alert."""
+        before = self.page.inner_text("#chip-edits")
+        self.page.click("#file-menu summary")
+        with self.page.expect_file_chooser() as fc:
+            self.page.click(button)
+        if dialog:
+            with self.page.expect_event("dialog") as ev:
+                fc.value.set_files(str(path))
+            return ev.value.message
+        fc.value.set_files(str(path))
+        self.page.wait_for_function("b => document.getElementById('chip-edits').textContent !== b", arg=before)
+
+    def test_files_menu_opens_tass_files_and_adds_students(self):
+        tmp = Path(self.tmp.name)
+        # A TTable.txt with one lesson moved; an SCourse.txt with a renamed student.
+        tt = (FIX / "TTable.txt").read_bytes().replace(b"1,2,7,C07E_1", b"2,3,7,C07E_1")
+        (tmp / "new-tt.txt").write_bytes(tt)
+        (tmp / "new-sc.txt").write_bytes((FIX / "SCourse.txt").read_bytes().replace(b"Test Student One", b"Renamed Student"))
+        self.choose_file("#file-menu button[data-load=ttable]", tmp / "new-tt.txt")
+        self.assertEqual(self.download("#dl-ttable").read_bytes(), formats_sorted(tt))
+        self.choose_file("#file-menu button[data-load=scourse]", tmp / "new-sc.txt")
+        self.page.click("#views button[data-v=Student]")
+        self.assertIn("Renamed Student", self.page.inner_text("#pick"))
+        self.assertIn("2 unsaved edits", self.page.inner_text("#chip-edits"))
+        # A TASS student list: a new Year 7 joins the classes the rest of Year 7 take; a known student is skipped.
+        (tmp / "students.csv").write_text('Student Code,Surname,Given Names,Year Group\n"900009","New","Kid","07"\n900001,Old,One,7\n')
+        msg = self.choose_file("#file-menu button[data-load=students]", tmp / "students.csv", dialog=True)
+        self.assertEqual(msg, "1 students added from students.csv.\n1 already here, left as they are.")
+        enr = formats.read_enrolments(self.download("#dl-scourse"))
+        self.assertEqual([(e.name, e.year, e.class_code, e.form) for e in enr if e.student_id == "900009"],
+                         [("Kid New", "7", "C07E_1", "7"), ("Kid New", "7", "C07MA_1", "7"), ("Kid New", "7", "C07Sc_1", "7")])
+        # A bad file is reported, not applied.
+        (tmp / "bad.txt").write_text("1,2,3\n")
+        msg = self.choose_file("#file-menu button[data-load=ttable]", tmp / "bad.txt", dialog=True)
+        self.assertIn("line 1 has 3 fields, expected 9", msg)
+        self.assertIn("3 unsaved edits", self.page.inner_text("#chip-edits"))
+
+    def test_versions_backup_and_save_as_copy(self):
+        tmp = Path(self.tmp.name)
+        self.page.remove_listener("dialog", self._dialog)
+        name_it = lambda d: d.accept("Draft A") if d.type == "prompt" else d.accept()
+        self.page.on("dialog", name_it)
+        self.page.click("#file-menu summary")
+        self.page.click("#ver-save")
+        self.assertIn("Draft A", self.page.inner_text("#ver-list"))
+        self.page.click("#views button[data-v=Student]")
+        self.page.select_option("#pick", "900002")
+        self.page.click("button[data-remove=C08Old_1]")
+        self.assertIn("3 errors", self.issues_button())
+        self.page.click("#file-menu summary")
+        backup = self.download("#ver-download")                       # a .json of the edited state
+        self.assertTrue(backup.name.endswith(".json"))
+        self.page.click("#file-menu summary")
+        self.page.click("#file-menu button[data-ver-restore='Draft A']")   # back to the original state, as an edit
+        self.assertIn("4 errors", self.issues_button())
+        self.assertIn('Restored version "Draft A"', self.page.inner_text("#chip-edits") + self.page.evaluate("log.join()"))
+        self.choose_file("#file-menu button[data-load=backup]", backup)
+        self.assertIn("3 errors", self.issues_button())
+        # Reset keeps a version first; versions survive a reload.
+        self.page.click("#reset")
+        self.page.reload()
+        self.page.click("#file-menu summary")
+        self.assertIn("Before reset", self.page.inner_text("#ver-list"))
+        # Save as: a new page whose starting point is the current state.
+        self.page.click("#file-menu button[data-ver-restore='Draft A']")
+        self.page.click("#views button[data-v=Student]")
+        self.page.select_option("#pick", "900002")
+        self.page.click("button[data-remove=C08Old_1]")
+        self.page.remove_listener("dialog", name_it)
+        self.page.on("dialog", lambda d: d.accept("copy.html") if d.type == "prompt" else d.accept())
+        self.page.click("#file-menu summary")
+        copy = self.download("#saveas")
+        page2 = self.ctx.new_page()
+        page2.on("pageerror", lambda e: self.errors.append(str(e)))
+        page2.goto(copy.as_uri())
+        self.assertIn("This copy was saved", page2.inner_text("#note"))
+        self.assertIn("No edits", page2.inner_text("#chip-edits"))
+        self.assertIn("3 errors", page2.inner_text("#chip-issues"))
+        self.assertEqual(page2.inner_text("#app-sub"), "Term 4 2026")
+        self.assertEqual(len(page2.query_selector_all("#views button")), len(self.page.query_selector_all("#views button")))
 
     def test_edits_survive_reload_and_reset_clears_them(self):
         self.page.click("#views button[data-v=Student]")

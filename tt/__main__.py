@@ -177,6 +177,20 @@ def cmd_start_term(args):
     return 0
 
 
+def cmd_backup(args):
+    from . import backup
+    path = backup.backup(args.out_dir, args.ttable, args.scourse, args.config)
+    print(f"Wrote {path}")
+    return 0
+
+
+def cmd_restore(args):
+    from . import backup
+    files = backup.restore(args.zip, args.out_dir)
+    print(f"Restored {len(files)} files into {args.out_dir}/: " + ", ".join(sorted({str(f.relative_to(args.out_dir)).split('/')[0] for f in files})))
+    return 0
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(prog="tt", description="TASS timetable file tools")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -187,8 +201,15 @@ def main(argv=None):
                             ("solve", cmd_solve, "construct a timetable from the plan (needs ortools)"),
                             ("rollover", cmd_rollover, "move students up a year group (end of year, or Year 11 -> 12 for Term 4)"),
                             ("next-term", cmd_next_term, "start a planning folder for next term from the current timetable"),
-                            ("start-term", cmd_start_term, "make a planning folder the current term (archives the old one)")]:
+                            ("start-term", cmd_start_term, "make a planning folder the current term (archives the old one)"),
+                            ("backup", cmd_backup, "zip the timetable, student file and config into one backup"),
+                            ("restore", cmd_restore, "unpack a backup zip into a folder")]:
         s = sub.add_parser(name, help=help_)
+        if name == "restore":
+            s.add_argument("zip", help="a backup zip")
+            s.add_argument("-o", "--out-dir", default="restored")
+            s.set_defaults(fn=fn)
+            continue
         if name == "start-term":
             s.add_argument("folder", nargs="?", default="next", help="planning folder (default: next)")
             s.add_argument("--root", default=".", help="repository folder holding timetable/ and config/")
@@ -203,11 +224,13 @@ def main(argv=None):
             s.add_argument("-o", "--out-dir", default="next")
         else:
             s.add_argument("scourse", help="SCourse.txt")
+        if name == "backup":
+            s.add_argument("-o", "--out-dir", default="backups")
         if name == "rollover":
             s.add_argument("-o", "--out-dir", default="rolled")
             s.add_argument("--advance", help="years that move up one (default: every year but the highest)")
             s.add_argument("--leave", help="years whose students leave, e.g. 12")
-        if name in ("check", "report", "pdf", "solve", "rollover", "next-term"):
+        if name in ("check", "report", "pdf", "solve", "rollover", "next-term", "backup"):
             s.add_argument("-c", "--config", default="config" if Path("config").is_dir() else None,
                            help="folder with school.json, classnames.csv, curriculum.csv (default: ./config if present)")
         if name == "report":

@@ -302,6 +302,21 @@ students could not be placed and any year group that has no classes in the
 timetable yet (Year 11 after the end-of-year roll, until its courses are
 planned). The new Year 7 arrives from TASS, not from this tool.
 
+## Files: loading from TASS, versions, backups, save as
+
+The **Files ▾** menu at the top right needs nothing but the page itself.
+
+| Item | What it does |
+| --- | --- |
+| Open TTable.txt | Replace the timetable with a file from TASS or Timetabler. |
+| Open SCourse.txt | Replace the enrolments. The cloud build has no students; load them here from your computer. They stay in your browser. |
+| Add students from a TASS list | A CSV with student code, name (or surname and given names) and year columns. New students join the classes most of their year take; a brand-new year group gets every class of that year, so remove the half-year groups they are not in. Students already on the page are skipped. |
+| Save a version… | Name the current state and keep it in the browser. Restore, download or delete it from the list. One is kept for you before every Reset. |
+| Download a backup / Open a backup | The whole page's state as a .json file, to keep or to carry to another computer. |
+| Save as a copy of this page | A new editor .html with the current state built in: a clean starting point for a what-if, or a dated copy to keep. |
+
+Restoring a version or a backup is an ordinary edit: Undo takes you back.
+
 ## Printing and PDFs
 
 The **Print** tab lays out the sheets the school is used to:
