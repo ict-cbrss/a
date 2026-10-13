@@ -17,6 +17,7 @@ is never committed.
 python -m tt check  data/TTable.txt data/SCourse.txt          # list clashes (exit 1 if errors)
 python -m tt report data/TTable.txt data/SCourse.txt -o data/timetable.html
 python -m tt export data/TTable.txt data/SCourse.txt -o data/out   # files ready for TASS import
+python -m tt pdf    data/TTable.txt data/SCourse.txt -o data/pdf   # PDFs of every print sheet (needs playwright)
 python -m unittest                                             # tests (synthetic data only)
 PLAYWRIGHT_CHROMIUM=/path/to/chromium python -m unittest       # also runs the browser tests (pip install playwright)
 ```
@@ -54,8 +55,22 @@ The **Print** tab lays the timetable out like the A3 master timetable
 printouts: one sheet per main lesson block, rows are day × year, columns are
 the real periods (Main Lesson spans TASS P3+P4). Pick a year for a class
 timetable, or leave "All years" for the master. **Print** uses the browser's
-print dialog (A3 landscape); "Save as PDF" there gives a file. The sheet
-reflects any unsaved edits and says so in its footer.
+print dialog (A3 for timetables, A4 for duty sheets); "Save as PDF" there
+gives a file. The sheet reflects any unsaved edits and says so in its footer.
+
+Printing only works with the file open directly in a browser (double-click
+it). Inside an embedded preview, such as the Claude app's file panel, the
+Print button explains this instead.
+
+### PDFs without a print dialog
+
+`python -m tt pdf data/TTable.txt data/SCourse.txt -o data/pdf` writes
+every print sheet as a PDF: `master-timetable.pdf`, one `class-N-timetable.pdf`
+per year, `yard-duty-roster.pdf`, and one `duties-CODE.pdf` per teacher.
+`-w dutysheets` (or `master`, `years`, `roster`) limits it to some sheets.
+It needs `pip install playwright` and a Chromium (`playwright install
+chromium`, or point `PLAYWRIGHT_CHROMIUM` at one). The per-teacher PDFs are
+what an emailing step would attach.
 
 ## School configuration (`config/`)
 

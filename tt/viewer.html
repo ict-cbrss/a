@@ -112,12 +112,16 @@ th small { color: var(--muted); font-weight: 400; font-size: 11px; display: bloc
 .sheet .foot { color: var(--muted); font-size: 10px; margin-top: 4px; }
 .sheet th.dutyhead, .sheet td.dutyname { width: 120px; font-weight: 700; white-space: nowrap; }
 @media print {
-  @page { size: A3 landscape; margin: 10mm; }
+  @page { size: A3 portrait; margin: 10mm; }
   body { padding: 0; background: #fff; color: #000; }
   h1, .bar, #note, #grid, #members, #issues, #changes, .noprint { display: none !important; }
   .sheet { break-after: page; margin: 0; }
   .sheet:last-child { break-after: auto; }
   .sheet th, .sheet td { border-color: #000; }
+  /* Master and class sheets: dense enough for one A3 page per block, like the Timetabler printouts */
+  .sheet:not(.a4) th, .sheet:not(.a4) td { font-size: 9px; padding: 1px 2px; line-height: 1.15; }
+  .sheet:not(.a4) h2 { font-size: 12px; margin-bottom: 3px; }
+  .sheet:not(.a4) .c { gap: 0 3px; }
   .sheet th { background: #eee; }
   .sheet td.yr, .sheet th.yr { background: #fff; }
 }
@@ -168,7 +172,7 @@ th small { color: var(--muted); font-weight: 400; font-size: 11px; display: bloc
     <select id="print-year" aria-label="Year"></select>
     <select id="print-teacher" aria-label="Teacher" class="hidden"></select>
     <button type="button" class="primary" id="print-btn">Print</button>
-    <span class="summary">Prints on A3 landscape, one block per page. Use "Save as PDF" in the print dialog for a file.</span>
+    <span class="summary">Prints on A3, one block per page. Use "Save as PDF" in the print dialog for a file.</span>
   </div>
   <div id="sheets"></div>
 </div>
@@ -724,7 +728,8 @@ function renderPrint() {
   renderPrintControls();
   const blockSel = $("print-block").value, yearSel = $("print-year").value;
   if (yearSel === "dutysheets") { $("sheets").innerHTML = renderDutySheets(blockSel, $("print-teacher").value); return; }
-  const groups = printGroups();
+  // Leave out periods nothing is timetabled in (e.g. an unused morning class) to save width.
+  const groups = printGroups().filter(g => state.lessons.some(l => g.ids.includes(l.period)));
   const years = uniq("year").sort(yearSort).filter(y => !yearSel || y === yearSel);
   const term = CFG.term || "";
   let html = "";
@@ -797,7 +802,15 @@ function renderDutySheets(blockSel, teacherSel) {
 $("print-teacher").addEventListener("change", renderPrint);
 $("print-block").addEventListener("change", renderPrint);
 $("print-year").addEventListener("change", renderPrint);
-$("print-btn").addEventListener("click", () => window.print());
+$("print-btn").addEventListener("click", () => {
+  // Inside an embedded preview (the Claude app, some intranet viewers) window.print() is ignored.
+  const embedded = window.self !== window.top;
+  if (embedded) {
+    alert("Printing is blocked inside this preview. Save the file and open it directly in Chrome, Edge or Safari (double-click it), then press Print or Ctrl+P / Cmd+P there. Or run: python -m tt pdf ... to get PDFs without a print dialog.");
+    return;
+  }
+  window.print();
+});
 
 function renderAll() {
   issues = check(state);

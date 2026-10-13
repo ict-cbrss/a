@@ -222,3 +222,18 @@ class ViewerTests(unittest.TestCase):
         self.assertIn("AA,,,,yes,\n", csv_text)
         self.assertIn("BB,Bea B,,,,\n", csv_text)
         self.assertIn("DD,Dee D,dd@school,,,2\n", csv_text)
+
+
+@unittest.skipUnless(sync_playwright, "playwright not installed")
+class PdfCommandTests(unittest.TestCase):
+    def test_pdf_command_writes_sheets(self):
+        from tt.__main__ import main
+        with tempfile.TemporaryDirectory() as d:
+            cfg = Path(d) / "config"; cfg.mkdir()
+            (cfg / "school.json").write_text('{"term": "T1", "weekdays": ["Mon", "Tue"], "blocks": [{"name": "B1", "short": "B1", "weeks": "", "days": [1, 2]}], "periods": [{"ids": [2], "name": "MC", "time": ""}, {"ids": [3], "name": "ML", "time": ""}], "duty_slots": [{"name": "Recess", "conflicts": []}]}')
+            (cfg / "duties.csv").write_text("day,block,weekday,slot,duty,teacher\n1,1,Mon,Recess,Recess top,AA\n2,1,Tue,Recess,Recess top,BB\n")
+            rc = main(["pdf", str(FIX / "TTable.txt"), str(FIX / "SCourse.txt"), "-c", str(cfg), "-o", str(Path(d) / "pdf")])
+            self.assertEqual(rc, 0)
+            names = sorted(p.name for p in (Path(d) / "pdf").iterdir())
+        self.assertEqual(names, ["class-12-timetable.pdf", "class-7-timetable.pdf", "class-8-timetable.pdf",
+                                 "duties-AA.pdf", "duties-BB.pdf", "master-timetable.pdf", "yard-duty-roster.pdf"])
