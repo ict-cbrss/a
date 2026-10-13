@@ -138,6 +138,45 @@ def cmd_solve(args):
     return 0
 
 
+def cmd_rollover(args):
+    """Move students into their next year group; write SCourse.txt and a report."""
+    lessons, enrolments = _load(args)
+    from . import rollover
+    advance = [int(y) for y in args.advance.split(",")] if args.advance else sorted({int(l.year) for l in lessons if l.year.isdigit()})[:-1]
+    leave = [int(y) for y in args.leave.split(",")] if args.leave else []
+    rolled, rep = rollover.roll_enrolments(enrolments, lessons, config.load(args.config)["classes"], advance, leave)
+    out = Path(args.out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    formats.write_enrolments(out / "SCourse.txt", rolled)
+    (out / "rollover-report.txt").write_text(rollover.report_text(rep), encoding="utf-8")
+    print(rollover.report_text(rep), end="")
+    print(f"Wrote {out / 'SCourse.txt'} and rollover-report.txt")
+    return 0
+
+
+def cmd_next_term(args):
+    """Start a planning folder for the coming term next to the live one."""
+    from . import rollover
+    if not args.config:
+        print("No config folder: pass -c config", file=sys.stderr)
+        return 2
+    rep = rollover.new_term(args.out_dir, args.term, args.ttable, args.config, args.students, args.rollover)
+    print(f"Created {args.out_dir}/ for {args.term}: config/, TTable.txt" + (", SCourse.txt" if args.students else ""))
+    if rep and args.rollover != "none":
+        print(rollover.report_text(rep), end="")
+    print(f"Plan there: python -m tt report {args.out_dir}/TTable.txt {args.out_dir}/SCourse.txt -c {args.out_dir}/config -o {args.out_dir}/timetable.html")
+    print(f"When the term starts: python -m tt start-term {args.out_dir}")
+    return 0
+
+
+def cmd_start_term(args):
+    from . import rollover
+    archive = rollover.start_term(args.folder, args.root)
+    print(f"{args.folder}/ is now the current term: timetable/TTable.txt and config/ replaced; the old ones are in {archive}/")
+    print(f"Import {args.folder}/TTable.txt and {args.folder}/SCourse.txt into TASS; SCourse.txt stays out of the repo.")
+    return 0
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(prog="tt", description="TASS timetable file tools")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -145,11 +184,30 @@ def main(argv=None):
                             ("report", cmd_report, "write an HTML timetable viewer"),
                             ("export", cmd_export, "write TASS import files"),
                             ("pdf", cmd_pdf, "write the print sheets as PDFs (needs playwright)"),
-                            ("solve", cmd_solve, "construct a timetable from the plan (needs ortools)")]:
+                            ("solve", cmd_solve, "construct a timetable from the plan (needs ortools)"),
+                            ("rollover", cmd_rollover, "move students up a year group (end of year, or Year 11 -> 12 for Term 4)"),
+                            ("next-term", cmd_next_term, "start a planning folder for next term from the current timetable"),
+                            ("start-term", cmd_start_term, "make a planning folder the current term (archives the old one)")]:
         s = sub.add_parser(name, help=help_)
-        s.add_argument("ttable", help="TTable.txt")
-        s.add_argument("scourse", help="SCourse.txt")
-        if name in ("check", "report", "pdf", "solve"):
+        if name == "start-term":
+            s.add_argument("folder", nargs="?", default="next", help="planning folder (default: next)")
+            s.add_argument("--root", default=".", help="repository folder holding timetable/ and config/")
+            s.set_defaults(fn=fn)
+            continue
+        s.add_argument("ttable", help="TTable.txt" + (" (the current timetable)" if name == "next-term" else ""))
+        if name == "next-term":
+            s.add_argument("term", help='name of the term, e.g. "Term 1 2027"')
+            s.add_argument("-s", "--students", help="current SCourse.txt (optional; rolled over into the folder, never committed)")
+            s.add_argument("-r", "--rollover", default="none", choices=["none", "end-of-year", "into-term4"],
+                           help="end-of-year: Years 7-11 move up, 12 stays; into-term4: Year 12 leaves, 11 becomes 12")
+            s.add_argument("-o", "--out-dir", default="next")
+        else:
+            s.add_argument("scourse", help="SCourse.txt")
+        if name == "rollover":
+            s.add_argument("-o", "--out-dir", default="rolled")
+            s.add_argument("--advance", help="years that move up one (default: every year but the highest)")
+            s.add_argument("--leave", help="years whose students leave, e.g. 12")
+        if name in ("check", "report", "pdf", "solve", "rollover", "next-term"):
             s.add_argument("-c", "--config", default="config" if Path("config").is_dir() else None,
                            help="folder with school.json, classnames.csv, curriculum.csv (default: ./config if present)")
         if name == "report":

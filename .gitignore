@@ -4,3 +4,6 @@ out/
 *.html
 !tt/viewer.html
 __pycache__/
+# Rolled-over student files and reports hold student names: never commit
+SCourse.txt
+rollover-report.txt

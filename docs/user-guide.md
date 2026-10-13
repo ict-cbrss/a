@@ -272,6 +272,36 @@ contradict each other (named), or it tells you which rule it had to drop
 (doubles, spread, teacher limits, availability) to find a timetable. Fix the
 plan and run again.
 
+## Next term and the end-of-year rollover
+
+The live timetable and settings stay where they are while you build the
+next one. Whoever runs the commands (ICT, or the cloud build) starts a
+planning folder:
+
+```
+python -m tt next-term timetable/TTable.txt "Term 1 2027" -s data/SCourse.txt -r end-of-year
+```
+
+You get `next/` holding a copy of the settings with the new term name, a
+copy of the timetable to start from, the students moved up a year, and
+`rollover-report.txt`. Open the editor built from that folder (or run the
+cloud build with **plan: next**) and work there: change the class plan,
+construct, fix clashes, print. The current term is untouched.
+
+On the first day of the new term, `python -m tt start-term next` makes it
+current and files the old term under `archive/`. Import the new TTable.txt
+and SCourse.txt into TASS then.
+
+**What the rollover does.** Year 7 to 11 students move up one year; Year 12
+stay (their HSC year runs into Term 3). Use `-r into-term4` between Term 3
+and Term 4 instead: Year 12 leave and Year 11 become Year 12. Each student's
+classes follow their cohort: the classes almost everyone in the year takes
+are swapped for the next year's; cross-year electives (E9/10) are kept;
+half-year groups are matched by code. The report lists every class whose
+students could not be placed and any year group that has no classes in the
+timetable yet (Year 11 after the end-of-year roll, until its courses are
+planned). The new Year 7 arrives from TASS, not from this tool.
+
 ## Printing and PDFs
 
 The **Print** tab lays out the sheets the school is used to:

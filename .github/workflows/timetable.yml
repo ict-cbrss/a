@@ -2,6 +2,8 @@
 #
 # Run it from GitHub: Actions -> "Build timetable" -> Run workflow. It reads
 # timetable/TTable.txt (the current timetable; no student data) and config/,
+# or next/TTable.txt and next/config when "plan" is next (see README:
+# Next term and rollover),
 # runs the checks, the solver (unless told not to) and the print sheets, and
 # publishes everything as a downloadable artifact: the editor page, the new
 # TTable.txt for TASS, and the PDFs.
@@ -22,6 +24,11 @@ on:
       time:
         description: "Seconds the solver may search"
         default: "120"
+      plan:
+        description: "Which timetable to build: the current term, or next term's plan in next/"
+        type: choice
+        options: [current, next]
+        default: current
 
 jobs:
   build:
@@ -39,17 +46,24 @@ jobs:
         run: |
           mkdir -p out
           : > out/SCourse.txt
-      - name: Check the current timetable
-        run: python -m tt check timetable/TTable.txt out/SCourse.txt || true
+      - name: Which plan
+        run: |
+          if [ "${{ inputs.plan }}" = next ]; then
+            echo "TT=next/TTable.txt" >> "$GITHUB_ENV"; echo "CFG=next/config" >> "$GITHUB_ENV"
+          else
+            echo "TT=timetable/TTable.txt" >> "$GITHUB_ENV"; echo "CFG=config" >> "$GITHUB_ENV"
+          fi
+      - name: Check the timetable
+        run: python -m tt check "$TT" out/SCourse.txt -c "$CFG" || true
       - name: Solve
         if: ${{ inputs.solve }}
-        run: python -m tt solve timetable/TTable.txt out/SCourse.txt -o out/solved -t ${{ inputs.time }}
+        run: python -m tt solve "$TT" out/SCourse.txt -c "$CFG" -o out/solved -t ${{ inputs.time }}
       - name: Editor and PDFs for the result
         run: |
-          SRC=timetable/TTable.txt
+          SRC="$TT"
           if [ -f out/solved/TTable.txt ]; then SRC=out/solved/TTable.txt; fi
-          python -m tt report "$SRC" out/SCourse.txt -o out/timetable.html
-          python -m tt pdf "$SRC" out/SCourse.txt -o out/pdf
+          python -m tt report "$SRC" out/SCourse.txt -c "$CFG" -o out/timetable.html
+          python -m tt pdf "$SRC" out/SCourse.txt -c "$CFG" -o out/pdf
           cp "$SRC" out/TTable.txt
       - uses: actions/upload-artifact@v4
         with:

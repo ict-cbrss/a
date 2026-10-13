@@ -19,6 +19,9 @@ python -m tt report data/TTable.txt data/SCourse.txt -o data/timetable.html
 python -m tt export data/TTable.txt data/SCourse.txt -o data/out   # files ready for TASS import
 python -m tt pdf    data/TTable.txt data/SCourse.txt -o data/pdf   # PDFs of every print sheet (needs playwright)
 python -m tt solve  data/TTable.txt data/SCourse.txt -o data/solved -t 120   # construct a timetable from the plan (needs ortools)
+python -m tt next-term timetable/TTable.txt "Term 1 2027" -s data/SCourse.txt -r end-of-year   # plan next term in next/
+python -m tt start-term next                                   # when the term starts: make next/ the current term
+python -m tt rollover data/TTable.txt data/SCourse.txt -o data/rolled --advance 11 --leave 12   # students up a year, on its own
 python -m unittest                                             # tests (synthetic data only)
 PLAYWRIGHT_CHROMIUM=/path/to/chromium python -m unittest       # also runs the browser tests (pip install playwright)
 ```
@@ -120,6 +123,54 @@ TASS.
 cloud build's student views are empty and it can't check student clashes.
 Run `python -m tt check` with both files wherever SCourse.txt is kept for
 that, or, later, the staff portal can hold it.
+
+### Next term and rollover
+
+The live timetable is `timetable/TTable.txt` with its settings in `config/`.
+To get the coming term ready before this one ends, plan it in a separate
+folder so nothing live changes:
+
+```sh
+python -m tt next-term timetable/TTable.txt "Term 1 2027" -s data/SCourse.txt -r end-of-year
+```
+
+This creates `next/` with a copy of `config/` (term renamed), `TTable.txt`
+(a copy to start from), `SCourse.txt` with the students moved up a year, and
+`rollover-report.txt`. Edit and solve there (`-c next/config`, or the
+workflow's **plan: next** option), commit `next/TTable.txt` and
+`next/config/`, and on the first day of term:
+
+```sh
+python -m tt start-term next
+```
+
+which copies `next/TTable.txt` to `timetable/` and `next/config/` to
+`config/`, keeps the old ones in `archive/<old term>/`, and leaves `next/`
+for you to delete. Import `next/TTable.txt` and `next/SCourse.txt` into
+TASS. `SCourse.txt` and `rollover-report.txt` are ignored by git everywhere
+because they hold student names.
+
+**Rollover** (`-r`, or `python -m tt rollover` on its own) moves students
+between year groups. The two moments in the year (NSW: Year 12 starts in
+Term 4):
+
+| Preset | When | What moves |
+| --- | --- | --- |
+| `end-of-year` | Term 4 → Term 1 | Years 7–11 move up one; Year 12 stays (their HSC year runs to Term 3). The new Year 7 comes from TASS later. |
+| `into-term4` | Term 3 → Term 4 | Year 12 leaves; Year 11 becomes Year 12. |
+
+Class codes carry the year (`C07E_1` is Year 7 English), so a student's
+classes are remapped: a class that three quarters or more of the year takes
+is a *core* class, and the cohort swaps its year's core classes for the next
+year's (Year 7 Geography and Year 8 History are different subjects, so a
+code match isn't needed). Cross-year classes (`E9/10Ar_1`) are kept while
+the class still takes the student's new year. Anything else is matched by
+code (`C07VAB_1` → `C08VAB_2`); when no match exists the enrolment is
+dropped and the report lists the class and its students so they can be
+placed by hand. A year with no classes in the timetable yet (Year 11 after
+an end-of-year roll) is reported once: build its classes in Class plan,
+construct, then allocate students. `curriculum.csv`'s student counts are
+refreshed from the rolled file.
 
 ## School configuration (`config/`)
 
@@ -286,11 +337,13 @@ Next, in order:
    not use [13B]; which period pairs count as doubles [1C].
 3. ✅ **Construct Timetable** [12, 13]: solver with locked groups, a
    lookahead view, spread and teacher-limit rules, cloud workflow.
-4. **Remaining prints**: teacher, room and student timetables, class lists,
+4. ✅ **Next term and rollover**: plan the coming term in `next/`, move
+   students up a year, make it current with an archive of the old term.
+5. **Remaining prints**: teacher, room and student timetables, class lists,
    teacher loads, statistics, free teachers/rooms on the master.
-5. Student subject choices and line building (Student Options module) - on
+6. Student subject choices and line building (Student Options module) - on
    hold.
-6. Publish to a web daily organiser - via the staff portal, later.
+7. Publish to a web daily organiser - via the staff portal, later.
 
 Skipped on purpose (big-school features): faculties, bands, RURs (room
 pools), meetings, multiple sites, FTE loads.
