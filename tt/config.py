@@ -61,7 +61,7 @@ def load(directory):
                 if not row["class_code"]:
                     continue
                 cfg["classes"].append({k: (row.get(k) or "") for k in
-                                       ("year", "group", "periods", "doubles", "mrcg", "unavailable", "class_code",
+                                       ("year", "group", "periods", "doubles", "mrcg", "unavailable", "locked", "class_code",
                                         "class_name", "students", "teacher", "room", "seats", "class_type")})
                 # A class in several groups gets their periods added; a group is counted once per class.
                 key = (row["class_code"], row["group"])

@@ -258,11 +258,11 @@ class ViewerTests(unittest.TestCase):
         self.assertEqual([th.inner_text().split("\n")[0] for th in self.page.locator("#class-grid thead th.g").all()], ["A", "B", "C"])
         csv_text = self.download("#dl-curriculum").read_text()
         rows = [l.split(",") for l in csv_text.strip().split("\n")]
-        self.assertEqual(rows[0][:7], ["year", "group", "periods", "doubles", "mrcg", "unavailable", "class_code"])
-        by = {(r[1], r[6]): r for r in rows[1:]}
-        self.assertEqual(by[("7A", "C07Sc_1")][9], "CC")          # moved to A, teacher changed
+        self.assertEqual(rows[0][:8], ["year", "group", "periods", "doubles", "mrcg", "unavailable", "locked", "class_code"])
+        by = {(r[1], r[7]): r for r in rows[1:]}
+        self.assertEqual(by[("7A", "C07Sc_1")][10], "CC")         # moved to A, teacher changed
         self.assertEqual(by[("7B", "C07E_1")][2], "3")            # periods changed
-        self.assertEqual(by[("7C", "C07Geo_1")][6], "C07Geo_1")   # new group
+        self.assertEqual(by[("7C", "C07Geo_1")][7], "C07Geo_1")   # new group
         self.page.click("#views button[data-v=Changes]")
         self.assertIn("Moved group A (Year 7) right", self.page.inner_text("#changes"))
 
@@ -304,6 +304,27 @@ class ViewerTests(unittest.TestCase):
         self.assertIn("G7,,0,\n", rooms_csv); self.assertIn("SLab,Science lab,36,1:3\n", rooms_csv)
         self.page.click("#views button[data-v=Teachers]")
         self.assertIn("AA,,,,,,0,,,1:2\n", self.download("#dl-teachers").read_text())
+
+    def test_construct_tab_lines_locks_and_lookahead(self):
+        self.page.click("#views button[data-v=Construct]")
+        self.assertEqual(self.page.inner_text("#construct-info"), "3 lines · 0 locked · 4 periods to place")
+        self.page.check("input[data-lock='7A']")
+        self.assertEqual(self.page.inner_text("#construct-info"), "3 lines · 1 locked · 4 periods to place")
+        self.page.click("tr[data-line='7B']")
+        # 7A (C07E_1, AA, G7) is locked at day 1 P2; 7B shares Year 7 and room G7, so that cell is blocked.
+        cell = self.page.locator("#lookahead td").nth(0)   # day 1, first period (P2)
+        self.assertIn("Year 7 has 7A (locked)", cell.get_attribute("title"))
+        self.assertEqual(self.page.locator("#lookahead td.no").count(), 3)   # plus both day-2 cells: DD is away
+        self.assertIn("1 free slots for 1 periods", self.page.inner_text("#lookahead"))
+        # Lock state is the same row in the Classes tab and in the download.
+        self.page.click("#views button[data-v=Classes]"); self.page.select_option("#pick", "7")
+        self.assertTrue(self.page.is_checked("input[data-g='7A'][data-f=locked]"))
+        self.page.click("#views button[data-v=Construct]")
+        self.assertIn("7,7A,1,0,,,yes,C07E_1,", self.download("#dl-curriculum2").read_text())
+        # Availability grid header toggles a whole period row.
+        self.page.click("#views button[data-v=Teachers]"); self.page.click("button[data-avail='AA']")
+        self.page.click("#teacher-avail th[data-tog-period='3']")
+        self.assertEqual(self.page.inner_text("button[data-avail='AA']"), "Periods (2)")
 
 
 @unittest.skipUnless(sync_playwright, "playwright not installed")

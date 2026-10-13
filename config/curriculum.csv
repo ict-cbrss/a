@@ -1,154 +1,154 @@
-year,group,periods,doubles,mrcg,unavailable,class_code,class_name,students,teacher,room,seats,class_type
-12,12A,15,0,,,C12ES_1,C12 English Standard,12,TWH,WM,17,Student Options Class
-12,12A,15,0,,,C12EA_1,C12 English Advanced,23,TWE,BA11,37,Student Options Class
-12,12B,15,0,,,C12MS_1,C12 Maths Standard,19,ARO,,,Student Options Class
-12,12B,15,0,,,C12MA_1,C12 Maths Advanced,9,SC,,,Student Options Class
-12,12C,15,0,,,C12Art_1,C12 Visual Arts,20,PAB,Art2,35,Student Options Class
-12,12C,15,0,,,C12Phy_1,C12 Physics,8,AH,Dem,35,Student Options Class
-12,12C,15,0,,,C12HMS,C12 HealthMScience,4,LG,,,Student Options Class
-12,12D,12,0,,,C12Bio_1,C12 Biology,18,SBY,Dem,35,Student Options Class
-12,12D,12,0,,,C12Leg_1,C12 Legal Studies,6,LB,,,Student Options Class
-12,12E,3,0,,,C12MExt_2,C12 Maths Extension 2,1,SC,,,Student Options Class
-12,12F,3,0,,,C12S&C_1,C12 Society and Culture,7,RK,,,Student Options Class
-12,12F,3,0,,,C12MExt_2,C12 Maths Extension 2,1,SC,,,Student Options Class
-12,12G,9,0,,,C12MExt_1,C12 Maths Extension,6,SC,,,Student Options Class
-12,12G,9,0,,,C12S&C_1,C12 Society and Culture,7,RK,,,Student Options Class
-12,12H,12,0,,,C12D&T_1,C12 D&T,12,PP,W,35,Student Options Class
-12,12H,12,0,,,C12Dr_1,C12 Drama,4,BD,H,35,Student Options Class
-12,12H,12,0,,,C12MH_1,C12 Modern History,12,JS,BA11,37,Student Options Class
-12,12I,9,0,,,C12Mu_1,C12 Music,9,NW,MU,35,Student Options Class
-12,12I,9,0,,,C12Bus_1,C12 Business Studies,13,RK,,,Student Options Class
-12,12I,9,0,,,C12EE_1,C12 English Extension 1,6,TWE,,,Student Options Class
-12,12J,6,0,,,C12Mu_1,C12 Music,9,NW,MU,35,Student Options Class
-12,12J,6,0,,,C12Bus_1,C12 Business Studies,13,RK,,,Student Options Class
-12,12K,3,0,,,C12EE_2,C12 English Extension 2,2,KB,Dem,35,Student Options Class
-12,12L,3,0,,,C12GU_1,C12 Guardian,35,SC,SLab,36,Student Options Class
-12,12L,3,0,,,C12GU_1,C12 Guardian,35,TWE,SLab,36,Student Options Class
-12,12M,15,0,,,C12MCHS_1,C12 Morning Circle,35,SC,SLab,36,Student Options Class
-12,12M,15,0,,,C12MCHS_1,C12 Morning Circle,35,TWE,SLab,36,Student Options Class
-11,11A,15,0,,,C11ES_1,C11 English Standard,0,TWH,,,Multi Class Group
-11,11A,15,0,,,C11EA_1,C11 English Advanced,0,TWE,BA11,37,Multi Class Group
-11,11B,12,0,,,C11MS_1,C11 Maths Standard,0,ARO,,,Multi Class Group
-11,11B,12,0,,,C11MA_1,C11 Maths Advanced,0,SC,BA11,37,Multi Class Group
-11,11C,6,0,,,C11MExt_1,C11 Maths Extension,0,SC,Bang,25,Core Class
-11,11D,15,0,,,C11Art_1,C11 Visual Arts,0,PAB,Art2,35,Multi Class Group
-11,11D,15,0,,,C11Phy_1,C11 Physics,0,AH,Dem,35,Multi Class Group
-11,11D,15,0,,,C11HMS,C11 HealthMScience,0,SBY,SLab,36,Multi Class Group
-11,11E,12,0,,,C11Bio_1,C11 Biology,0,SBY,,,Multi Class Group
-11,11E,12,0,,,C11S&C_1,C11 Society and Culture,0,PN,,,Multi Class Group
-11,11E,12,0,,,C11Leg_1,C11 Legal Studies,0,LB,,,Multi Class Group
-11,11F,15,0,,,C11D&T_1,C11 D&T,0,PP,W,35,Multi Class Group
-11,11F,15,0,,,C11Dr_1,C11 Drama,0,BD,H,35,Multi Class Group
-11,11F,15,0,,,C11MH_1,C11 Modern History,0,JS,,,Multi Class Group
-11,11G,9,0,,,C11Mu_1,C11 Music,0,NW,MU,35,Multi Class Group
-11,11G,9,0,,,C11EE_1,C11 English Extension,0,TWE,,,Multi Class Group
-11,11G,9,0,,,C11Bus_1,C11 Business Studies,0,RK,,,Multi Class Group
-11,11H,3,0,,,C11Mu_1,C11 Music,0,NW,MU,35,Multi Class Group
-11,11H,3,0,,,C11Bus_1,C11 Business Studies,0,RK,,,Multi Class Group
-11,11I,10,0,,,C11Phil_1,C11 Philosophy,0,TWE,BA11,37,Core Class
-11,11J,5,0,,,C11Phil_1,C11 Philosophy,0,RH,BA11,37,Core Class
-11,11K,3,0,,,C11GU_1,C11 Guardian,0,SC,BA11,37,Multi Class Group
-11,11K,3,0,,,C11GU_1,C11 Guardian,0,TWE,BA11,37,Multi Class Group
-11,11L,15,0,,,C11MCHS_1,C11 Morning Circle,0,SC,BA11,37,Multi Class Group
-11,11L,15,0,,,C11MCHS_1,C11 Morning Circle,0,TWE,BA11,37,Multi Class Group
-10,10A,9,0,,,C10Eng_1,C10 English,29,TWH,G10,35,Student Options Class
-10,10B,12,0,,,C10MAA_1,C10 Maths Andy,15,ARO,G10,35,Student Options Class
-10,10B,12,0,,,C10MAS_1,C10 Maths Simon,14,SC,Bang,25,Student Options Class
-10,10C,9,1,,,C10ScA_1,C10 Science A,15,AH,Dem,35,Student Options Class
-10,10C,9,1,,,C10ScS_1,C10 Science S,14,SV,SLab,36,Student Options Class
-10,10D,6,0,,,C10Geo_1,C10 Geography,29,RK,G10,35,Student Options Class
-10,10E,9,1,1,,E9/10Sp_1,9/10 Elective Sport,10,LG,CO,36,Student Options Class
-10,10F,3,1,2,,E9/10Dr_1,9/10 Elective Drama,8,BD,H,35,Student Options Class
-10,10G,3,0,3,,E9/10Dr_1,9/10 Elective Drama,8,BD,H,35,Student Options Class
-10,10H,3,0,4,,E9/10Dr_1,9/10 Elective Drama,8,BD,H,35,Student Options Class
-10,10I,2,0,,,C10PE_1,C10 PDHPE,29,LG,G10,35,Student Options Class
-10,10J,5,0,,,C10PE_1,C10 PDHPE,29,LG,CO,36,Student Options Class
-10,10K,3,0,,,C10GU_1,C10 Guardian,29,TWH,G10,35,Student Options Class
-10,10K,3,0,,,C10GU_1,C10 Guardian,29,AJ,G10,35,Student Options Class
-10,10K,3,0,,,C10GU_1,C10 Guardian,29,VG,G10,35,Student Options Class
-10,10L,15,0,,,MCHS_10,Morning Circle Class 10,29,TWH,G10,35,Student Options Class
-10,10L,15,0,,,MCHS_10,Morning Circle Class 10,29,AJ,G10,35,Student Options Class
-10,10L,15,0,,,MCHS_10,Morning Circle Class 10,29,VG,G10,35,Student Options Class
-10,10M,8,1,,,C10ML_1,Class 10 Main Lesson,29,RK,LM9,35,Student Options Class
-10,10N,2,0,,,C10ML_1,Class 10 Main Lesson,29,RK,G10,35,Student Options Class
-10,10O,2,1,,,C10ML_1,Class 10 Main Lesson,29,SV,G10,35,Student Options Class
-10,10P,2,1,,,C10ML_1,Class 10 Main Lesson,29,SC,G10,35,Student Options Class
-10,10Q,2,0,,,C10ML_1,Class 10 Main Lesson,29,LG,G10,35,Student Options Class
-10,10R,2,0,,,C10ML_1,Class 10 Main Lesson,29,TWH,G10,35,Student Options Class
-10,10S,8,0,,,C10ML_1,Class 10 Main Lesson,29,TWH,BA11,37,Student Options Class
-10,10S,8,0,,,C10ML_1,Class 10 Main Lesson,29,RH,BA11,37,Student Options Class
-9,9A,9,0,,,C09Eng_1,C9 English,29,TWE,LM9,35,Student Options Class
-9,9B,9,0,,,C09MAS_1,C9 Maths Shanti,12,SV,LM9,35,Student Options Class
-9,9B,9,0,,,C09MAA_1,C9 Maths Andy,17,ARO,Bang,25,Student Options Class
-9,9C,9,1,,,C09Sc_1,C9 Science,29,SV,SLab,36,Student Options Class
-9,9D,9,0,,,C09His_1,C9 History,29,TC,LM9,35,Student Options Class
-9,9E,9,1,1,,E9/10Mu_1,9/10 Elective Music,14,NW,MU,35,Student Options Class
-9,9E,9,1,1,,E9/10Food_1,9/10 Elective Food,14,TWH,LM9,35,Student Options Class
-9,9E,9,1,1,,E9/10Graph_1,9/10 Graphic Design,10,PAB,G10,35,Student Options Class
-9,9E,9,1,1,,E9/10Digi_1,9/10 Elective DigiTech,10,MG,CAV,30,Student Options Class
-9,9F,3,1,2,,E9/10Tx_1,9/10 Elective Textiles,13,VG,Tex,24,Student Options Class
-9,9F,3,1,2,,E9/10Ar_1,9/10 Elective Art,16,CS,Art1,35,Student Options Class
-9,9F,3,1,2,,E9/10Ms_1,9/10 Metal Smithing,13,PP,W,35,Student Options Class
-9,9F,3,1,2,,E9/10Tr_1,9/10 Trail Running,7,SBY,LM9,35,Student Options Class
-9,9G,3,0,3,,E9/10Tx_1,9/10 Elective Textiles,13,VG,Tex,24,Student Options Class
-9,9G,3,0,3,,E9/10Ar_1,9/10 Elective Art,16,CS,Art1,35,Student Options Class
-9,9G,3,0,3,,E9/10Ms_1,9/10 Metal Smithing,13,PP,W,35,Student Options Class
-9,9G,3,0,3,,E9/10Tr_1,9/10 Trail Running,7,SBY,LM9,35,Student Options Class
-9,9H,3,0,4,,E9/10Tx_1,9/10 Elective Textiles,13,VG,Tex,24,Student Options Class
-9,9H,3,0,4,,E9/10Ar_1,9/10 Elective Art,16,PAB,Art1,35,Student Options Class
-9,9H,3,0,4,,E9/10Ms_1,9/10 Metal Smithing,13,PP,W,35,Student Options Class
-9,9H,3,0,4,,E9/10Tr_1,9/10 Trail Running,7,SBY,LM9,35,Student Options Class
-9,9I,3,0,,,C09PE_1,C9 PDHPE,29,LG,LM9,35,Student Options Class
-9,9J,6,0,,,C09PE_1,C9 PDHPE,29,LG,CO,36,Student Options Class
-9,9K,3,0,,,C09GU_1,C9 Guardian,29,SV,LM9,35,Student Options Class
-9,9K,3,0,,,C09GU_1,C9 Guardian,29,PN,LM9,35,Student Options Class
-9,9L,15,0,,,MCHS_9,Morning Circle Class 09,29,SV,LM9,35,Student Options Class
-9,9L,15,0,,,MCHS_9,Morning Circle Class 09,29,PN,LM9,35,Student Options Class
-9,9M,8,0,,,C09ML_1,Class 9 Main Lesson,29,PN,Art1,35,Student Options Class
-9,9N,8,4,,,C09ML_1,Class 9 Main Lesson,29,PAB,Art1,35,Student Options Class
-9,9O,8,0,,,C09ML_1,Class 9 Main Lesson,29,BD,H,35,Student Options Class
-8,8A,9,0,,,C08E_1,C8 English,32,TWH,C8,35,Student Options Class
-8,8B,9,0,,,C08MA_1,C8 Mathematics,32,ARO,C8,35,Student Options Class
-8,8C,9,1,,,C08S_1,C8 Science,32,SV,SLab,36,Student Options Class
-8,8D,9,0,,,C08His_1,C8 History,32,TC,C8,35,Student Options Class
-8,8E,3,0,,,C08MUA_1,C8 Music A,16,NW,MU,35,Student Options Class
-8,8E,3,0,,,C08VAA_1,C8 Visual Arts A,16,VG,Art1,35,Student Options Class
-8,8F,3,0,,,C08MUB_1,C8 Music B,16,NW,MU,35,Student Options Class
-8,8F,3,0,,,C08VAB_2,C8 Visual Arts B,16,VG,Art1,35,Student Options Class
-8,8G,9,0,,,C08TWo_1,C8 Technology - Workshop,16,PP,W,35,Student Options Class
-8,8G,9,0,,,C08ICT_1,C8 Technology - ICT,16,MG,CAV,30,Student Options Class
-8,8H,3,0,,,C08PE_1,C8 PDHPE,32,LG,C8,35,Student Options Class
-8,8I,6,0,,,C08PE_1,C8 PDHPE,32,LG,CO,36,Student Options Class
-8,8J,3,0,,,C08To_1,C8 Tobias,32,BD,C8,35,Student Options Class
-8,8J,3,0,,,C08To_1,C8 Tobias,32,PP,C8,35,Student Options Class
-8,8K,3,0,,,C08GU_1,C8 Guardian,32,CS,C8,35,Student Options Class
-8,8K,3,0,,,C08GU_1,C8 Guardian,32,BD,C8,35,Student Options Class
-8,8L,15,0,,,MCHS8,Morning Circle Class 08,32,CS,C8,35,Student Options Class
-8,8L,15,0,,,MCHS8,Morning Circle Class 08,32,BD,C8,35,Student Options Class
-8,8M,8,4,,,C08ML_1,Class 8 Main Lesson,32,TWE,C8,35,Student Options Class
-8,8N,8,4,,,C08ML_1,Class 8 Main Lesson,32,TC,C8,35,Student Options Class
-8,8O,8,4,,,C08ML_1,Class 8 Main Lesson,32,ARO,LM9,35,Student Options Class
-7,7A,6,0,,,C07E_1,C7 English,32,TWH,G7,32,Student Options Class
-7,7B,9,0,,,C07MA_1,C7 Mathematics,32,SC,G7,32,Student Options Class
-7,7C,6,0,,,C07S_1,C7 Science,32,SBY,SLab,36,Student Options Class
-7,7D,6,0,,,C07Geo_1,C7 Geography,32,RK,G7,32,Student Options Class
-7,7E,3,0,,,C07MUA_1,C7 Music A,16,CW,MU,35,Student Options Class
-7,7E,3,0,,,C07VAB_1,C7 Visual Arts B,16,VG,Art1,35,Student Options Class
-7,7F,3,0,,,C07MUB_1,C7 Music B,16,CW,MU,35,Student Options Class
-7,7F,3,0,,,C07VAA_1,C7 Visual Arts A,16,VG,Art1,35,Student Options Class
-7,7G,9,0,,,C07TWo_1,C7 Technology - Workshop,16,PP,W,35,Student Options Class
-7,7G,9,0,,,C07Tex_1,C7 Technology - Textiles,16,VG,Tex,24,Student Options Class
-7,7H,6,0,,,C07PE_1,C7 PDHPE,32,SBY,CO,36,Student Options Class
-7,7I,3,0,,,C07PE_1,C7 PDHPE,32,SBY,G7,32,Student Options Class
-7,7J,12,0,,,C07Sp_1,C7 Spanish,32,SZ,G7,32,Student Options Class
-7,7K,3,0,,,C07Sing_1,C7 Singing,32,SBY,G7,32,Student Options Class
-7,7K,3,0,,,C07Sing_1,C7 Singing,32,LM,G7,32,Student Options Class
-7,7L,3,0,,,C07GU_1,C7 Guardian,32,RK,G7,32,Student Options Class
-7,7L,3,0,,,C07GU_1,C7 Guardian,32,SBY,G7,32,Student Options Class
-7,7M,15,0,,,MCHS_7,Morning Circle Class 07,32,RK,G7,32,Student Options Class
-7,7M,15,0,,,MCHS_7,Morning Circle Class 07,32,SBY,G7,32,Student Options Class
-7,7N,7,0,,,C07ML_1,Class 7 Main Lesson,32,TWH,G7,32,Student Options Class
-7,7O,7,0,,,C07ML_1,Class 7 Main Lesson,32,SBY,G7,32,Student Options Class
-7,7O,7,0,,,C07ML_1,Class 7 Main Lesson,32,RK,G7,32,Student Options Class
-7,7P,7,0,,,C07ML_1,Class 7 Main Lesson,32,RK,C8,35,Student Options Class
-7,7P,7,0,,,C07ML_1,Class 7 Main Lesson,32,SBY,C8,35,Student Options Class
+year,group,periods,doubles,mrcg,unavailable,locked,class_code,class_name,students,teacher,room,seats,class_type
+12,12A,15,0,,,,C12ES_1,C12 English Standard,12,TWH,WM,17,Student Options Class
+12,12A,15,0,,,,C12EA_1,C12 English Advanced,23,TWE,BA11,37,Student Options Class
+12,12B,15,0,,,,C12MS_1,C12 Maths Standard,19,ARO,,,Student Options Class
+12,12B,15,0,,,,C12MA_1,C12 Maths Advanced,9,SC,,,Student Options Class
+12,12C,15,0,,,,C12Art_1,C12 Visual Arts,20,PAB,Art2,35,Student Options Class
+12,12C,15,0,,,,C12Phy_1,C12 Physics,8,AH,Dem,35,Student Options Class
+12,12C,15,0,,,,C12HMS,C12 HealthMScience,4,LG,,,Student Options Class
+12,12D,12,0,,,,C12Bio_1,C12 Biology,18,SBY,Dem,35,Student Options Class
+12,12D,12,0,,,,C12Leg_1,C12 Legal Studies,6,LB,,,Student Options Class
+12,12E,3,0,,,,C12MExt_2,C12 Maths Extension 2,1,SC,,,Student Options Class
+12,12F,3,0,,,,C12S&C_1,C12 Society and Culture,7,RK,,,Student Options Class
+12,12F,3,0,,,,C12MExt_2,C12 Maths Extension 2,1,SC,,,Student Options Class
+12,12G,9,0,,,,C12MExt_1,C12 Maths Extension,6,SC,,,Student Options Class
+12,12G,9,0,,,,C12S&C_1,C12 Society and Culture,7,RK,,,Student Options Class
+12,12H,12,0,,,,C12D&T_1,C12 D&T,12,PP,W,35,Student Options Class
+12,12H,12,0,,,,C12Dr_1,C12 Drama,4,BD,H,35,Student Options Class
+12,12H,12,0,,,,C12MH_1,C12 Modern History,12,JS,BA11,37,Student Options Class
+12,12I,9,0,,,,C12Mu_1,C12 Music,9,NW,MU,35,Student Options Class
+12,12I,9,0,,,,C12Bus_1,C12 Business Studies,13,RK,,,Student Options Class
+12,12I,9,0,,,,C12EE_1,C12 English Extension 1,6,TWE,,,Student Options Class
+12,12J,6,0,,,,C12Mu_1,C12 Music,9,NW,MU,35,Student Options Class
+12,12J,6,0,,,,C12Bus_1,C12 Business Studies,13,RK,,,Student Options Class
+12,12K,3,0,,,,C12EE_2,C12 English Extension 2,2,KB,Dem,35,Student Options Class
+12,12L,3,0,,,,C12GU_1,C12 Guardian,35,SC,SLab,36,Student Options Class
+12,12L,3,0,,,,C12GU_1,C12 Guardian,35,TWE,SLab,36,Student Options Class
+12,12M,15,0,,,,C12MCHS_1,C12 Morning Circle,35,SC,SLab,36,Student Options Class
+12,12M,15,0,,,,C12MCHS_1,C12 Morning Circle,35,TWE,SLab,36,Student Options Class
+11,11A,15,0,,,,C11ES_1,C11 English Standard,0,TWH,,,Multi Class Group
+11,11A,15,0,,,,C11EA_1,C11 English Advanced,0,TWE,BA11,37,Multi Class Group
+11,11B,12,0,,,,C11MS_1,C11 Maths Standard,0,ARO,,,Multi Class Group
+11,11B,12,0,,,,C11MA_1,C11 Maths Advanced,0,SC,BA11,37,Multi Class Group
+11,11C,6,0,,,,C11MExt_1,C11 Maths Extension,0,SC,Bang,25,Core Class
+11,11D,15,0,,,,C11Art_1,C11 Visual Arts,0,PAB,Art2,35,Multi Class Group
+11,11D,15,0,,,,C11Phy_1,C11 Physics,0,AH,Dem,35,Multi Class Group
+11,11D,15,0,,,,C11HMS,C11 HealthMScience,0,SBY,SLab,36,Multi Class Group
+11,11E,12,0,,,,C11Bio_1,C11 Biology,0,SBY,,,Multi Class Group
+11,11E,12,0,,,,C11S&C_1,C11 Society and Culture,0,PN,,,Multi Class Group
+11,11E,12,0,,,,C11Leg_1,C11 Legal Studies,0,LB,,,Multi Class Group
+11,11F,15,0,,,,C11D&T_1,C11 D&T,0,PP,W,35,Multi Class Group
+11,11F,15,0,,,,C11Dr_1,C11 Drama,0,BD,H,35,Multi Class Group
+11,11F,15,0,,,,C11MH_1,C11 Modern History,0,JS,,,Multi Class Group
+11,11G,9,0,,,,C11Mu_1,C11 Music,0,NW,MU,35,Multi Class Group
+11,11G,9,0,,,,C11EE_1,C11 English Extension,0,TWE,,,Multi Class Group
+11,11G,9,0,,,,C11Bus_1,C11 Business Studies,0,RK,,,Multi Class Group
+11,11H,3,0,,,,C11Mu_1,C11 Music,0,NW,MU,35,Multi Class Group
+11,11H,3,0,,,,C11Bus_1,C11 Business Studies,0,RK,,,Multi Class Group
+11,11I,10,0,,,,C11Phil_1,C11 Philosophy,0,TWE,BA11,37,Core Class
+11,11J,5,0,,,,C11Phil_1,C11 Philosophy,0,RH,BA11,37,Core Class
+11,11K,3,0,,,,C11GU_1,C11 Guardian,0,SC,BA11,37,Multi Class Group
+11,11K,3,0,,,,C11GU_1,C11 Guardian,0,TWE,BA11,37,Multi Class Group
+11,11L,15,0,,,,C11MCHS_1,C11 Morning Circle,0,SC,BA11,37,Multi Class Group
+11,11L,15,0,,,,C11MCHS_1,C11 Morning Circle,0,TWE,BA11,37,Multi Class Group
+10,10A,9,0,,,,C10Eng_1,C10 English,29,TWH,G10,35,Student Options Class
+10,10B,12,0,,,,C10MAA_1,C10 Maths Andy,15,ARO,G10,35,Student Options Class
+10,10B,12,0,,,,C10MAS_1,C10 Maths Simon,14,SC,Bang,25,Student Options Class
+10,10C,9,1,,,,C10ScA_1,C10 Science A,15,AH,Dem,35,Student Options Class
+10,10C,9,1,,,,C10ScS_1,C10 Science S,14,SV,SLab,36,Student Options Class
+10,10D,6,0,,,,C10Geo_1,C10 Geography,29,RK,G10,35,Student Options Class
+10,10E,9,1,1,,,E9/10Sp_1,9/10 Elective Sport,10,LG,CO,36,Student Options Class
+10,10F,3,1,2,,,E9/10Dr_1,9/10 Elective Drama,8,BD,H,35,Student Options Class
+10,10G,3,0,3,,,E9/10Dr_1,9/10 Elective Drama,8,BD,H,35,Student Options Class
+10,10H,3,0,4,,,E9/10Dr_1,9/10 Elective Drama,8,BD,H,35,Student Options Class
+10,10I,2,0,,,,C10PE_1,C10 PDHPE,29,LG,G10,35,Student Options Class
+10,10J,5,0,,,,C10PE_1,C10 PDHPE,29,LG,CO,36,Student Options Class
+10,10K,3,0,,,,C10GU_1,C10 Guardian,29,TWH,G10,35,Student Options Class
+10,10K,3,0,,,,C10GU_1,C10 Guardian,29,AJ,G10,35,Student Options Class
+10,10K,3,0,,,,C10GU_1,C10 Guardian,29,VG,G10,35,Student Options Class
+10,10L,15,0,,,,MCHS_10,Morning Circle Class 10,29,TWH,G10,35,Student Options Class
+10,10L,15,0,,,,MCHS_10,Morning Circle Class 10,29,AJ,G10,35,Student Options Class
+10,10L,15,0,,,,MCHS_10,Morning Circle Class 10,29,VG,G10,35,Student Options Class
+10,10M,8,1,,,,C10ML_1,Class 10 Main Lesson,29,RK,LM9,35,Student Options Class
+10,10N,2,0,,,,C10ML_1,Class 10 Main Lesson,29,RK,G10,35,Student Options Class
+10,10O,2,1,,,,C10ML_1,Class 10 Main Lesson,29,SV,G10,35,Student Options Class
+10,10P,2,1,,,,C10ML_1,Class 10 Main Lesson,29,SC,G10,35,Student Options Class
+10,10Q,2,0,,,,C10ML_1,Class 10 Main Lesson,29,LG,G10,35,Student Options Class
+10,10R,2,0,,,,C10ML_1,Class 10 Main Lesson,29,TWH,G10,35,Student Options Class
+10,10S,8,0,,,,C10ML_1,Class 10 Main Lesson,29,TWH,BA11,37,Student Options Class
+10,10S,8,0,,,,C10ML_1,Class 10 Main Lesson,29,RH,BA11,37,Student Options Class
+9,9A,9,0,,,,C09Eng_1,C9 English,29,TWE,LM9,35,Student Options Class
+9,9B,9,0,,,,C09MAS_1,C9 Maths Shanti,12,SV,LM9,35,Student Options Class
+9,9B,9,0,,,,C09MAA_1,C9 Maths Andy,17,ARO,Bang,25,Student Options Class
+9,9C,9,1,,,,C09Sc_1,C9 Science,29,SV,SLab,36,Student Options Class
+9,9D,9,0,,,,C09His_1,C9 History,29,TC,LM9,35,Student Options Class
+9,9E,9,1,1,,,E9/10Mu_1,9/10 Elective Music,14,NW,MU,35,Student Options Class
+9,9E,9,1,1,,,E9/10Food_1,9/10 Elective Food,14,TWH,LM9,35,Student Options Class
+9,9E,9,1,1,,,E9/10Graph_1,9/10 Graphic Design,10,PAB,G10,35,Student Options Class
+9,9E,9,1,1,,,E9/10Digi_1,9/10 Elective DigiTech,10,MG,CAV,30,Student Options Class
+9,9F,3,1,2,,,E9/10Tx_1,9/10 Elective Textiles,13,VG,Tex,24,Student Options Class
+9,9F,3,1,2,,,E9/10Ar_1,9/10 Elective Art,16,CS,Art1,35,Student Options Class
+9,9F,3,1,2,,,E9/10Ms_1,9/10 Metal Smithing,13,PP,W,35,Student Options Class
+9,9F,3,1,2,,,E9/10Tr_1,9/10 Trail Running,7,SBY,LM9,35,Student Options Class
+9,9G,3,0,3,,,E9/10Tx_1,9/10 Elective Textiles,13,VG,Tex,24,Student Options Class
+9,9G,3,0,3,,,E9/10Ar_1,9/10 Elective Art,16,CS,Art1,35,Student Options Class
+9,9G,3,0,3,,,E9/10Ms_1,9/10 Metal Smithing,13,PP,W,35,Student Options Class
+9,9G,3,0,3,,,E9/10Tr_1,9/10 Trail Running,7,SBY,LM9,35,Student Options Class
+9,9H,3,0,4,,,E9/10Tx_1,9/10 Elective Textiles,13,VG,Tex,24,Student Options Class
+9,9H,3,0,4,,,E9/10Ar_1,9/10 Elective Art,16,PAB,Art1,35,Student Options Class
+9,9H,3,0,4,,,E9/10Ms_1,9/10 Metal Smithing,13,PP,W,35,Student Options Class
+9,9H,3,0,4,,,E9/10Tr_1,9/10 Trail Running,7,SBY,LM9,35,Student Options Class
+9,9I,3,0,,,,C09PE_1,C9 PDHPE,29,LG,LM9,35,Student Options Class
+9,9J,6,0,,,,C09PE_1,C9 PDHPE,29,LG,CO,36,Student Options Class
+9,9K,3,0,,,,C09GU_1,C9 Guardian,29,SV,LM9,35,Student Options Class
+9,9K,3,0,,,,C09GU_1,C9 Guardian,29,PN,LM9,35,Student Options Class
+9,9L,15,0,,,,MCHS_9,Morning Circle Class 09,29,SV,LM9,35,Student Options Class
+9,9L,15,0,,,,MCHS_9,Morning Circle Class 09,29,PN,LM9,35,Student Options Class
+9,9M,8,0,,,,C09ML_1,Class 9 Main Lesson,29,PN,Art1,35,Student Options Class
+9,9N,8,4,,,,C09ML_1,Class 9 Main Lesson,29,PAB,Art1,35,Student Options Class
+9,9O,8,0,,,,C09ML_1,Class 9 Main Lesson,29,BD,H,35,Student Options Class
+8,8A,9,0,,,,C08E_1,C8 English,32,TWH,C8,35,Student Options Class
+8,8B,9,0,,,,C08MA_1,C8 Mathematics,32,ARO,C8,35,Student Options Class
+8,8C,9,1,,,,C08S_1,C8 Science,32,SV,SLab,36,Student Options Class
+8,8D,9,0,,,,C08His_1,C8 History,32,TC,C8,35,Student Options Class
+8,8E,3,0,,,,C08MUA_1,C8 Music A,16,NW,MU,35,Student Options Class
+8,8E,3,0,,,,C08VAA_1,C8 Visual Arts A,16,VG,Art1,35,Student Options Class
+8,8F,3,0,,,,C08MUB_1,C8 Music B,16,NW,MU,35,Student Options Class
+8,8F,3,0,,,,C08VAB_2,C8 Visual Arts B,16,VG,Art1,35,Student Options Class
+8,8G,9,0,,,,C08TWo_1,C8 Technology - Workshop,16,PP,W,35,Student Options Class
+8,8G,9,0,,,,C08ICT_1,C8 Technology - ICT,16,MG,CAV,30,Student Options Class
+8,8H,3,0,,,,C08PE_1,C8 PDHPE,32,LG,C8,35,Student Options Class
+8,8I,6,0,,,,C08PE_1,C8 PDHPE,32,LG,CO,36,Student Options Class
+8,8J,3,0,,,,C08To_1,C8 Tobias,32,BD,C8,35,Student Options Class
+8,8J,3,0,,,,C08To_1,C8 Tobias,32,PP,C8,35,Student Options Class
+8,8K,3,0,,,,C08GU_1,C8 Guardian,32,CS,C8,35,Student Options Class
+8,8K,3,0,,,,C08GU_1,C8 Guardian,32,BD,C8,35,Student Options Class
+8,8L,15,0,,,,MCHS8,Morning Circle Class 08,32,CS,C8,35,Student Options Class
+8,8L,15,0,,,,MCHS8,Morning Circle Class 08,32,BD,C8,35,Student Options Class
+8,8M,8,4,,,,C08ML_1,Class 8 Main Lesson,32,TWE,C8,35,Student Options Class
+8,8N,8,4,,,,C08ML_1,Class 8 Main Lesson,32,TC,C8,35,Student Options Class
+8,8O,8,4,,,,C08ML_1,Class 8 Main Lesson,32,ARO,LM9,35,Student Options Class
+7,7A,6,0,,,,C07E_1,C7 English,32,TWH,G7,32,Student Options Class
+7,7B,9,0,,,,C07MA_1,C7 Mathematics,32,SC,G7,32,Student Options Class
+7,7C,6,0,,,,C07S_1,C7 Science,32,SBY,SLab,36,Student Options Class
+7,7D,6,0,,,,C07Geo_1,C7 Geography,32,RK,G7,32,Student Options Class
+7,7E,3,0,,,,C07MUA_1,C7 Music A,16,CW,MU,35,Student Options Class
+7,7E,3,0,,,,C07VAB_1,C7 Visual Arts B,16,VG,Art1,35,Student Options Class
+7,7F,3,0,,,,C07MUB_1,C7 Music B,16,CW,MU,35,Student Options Class
+7,7F,3,0,,,,C07VAA_1,C7 Visual Arts A,16,VG,Art1,35,Student Options Class
+7,7G,9,0,,,,C07TWo_1,C7 Technology - Workshop,16,PP,W,35,Student Options Class
+7,7G,9,0,,,,C07Tex_1,C7 Technology - Textiles,16,VG,Tex,24,Student Options Class
+7,7H,6,0,,,,C07PE_1,C7 PDHPE,32,SBY,CO,36,Student Options Class
+7,7I,3,0,,,,C07PE_1,C7 PDHPE,32,SBY,G7,32,Student Options Class
+7,7J,12,0,,,,C07Sp_1,C7 Spanish,32,SZ,G7,32,Student Options Class
+7,7K,3,0,,,,C07Sing_1,C7 Singing,32,SBY,G7,32,Student Options Class
+7,7K,3,0,,,,C07Sing_1,C7 Singing,32,LM,G7,32,Student Options Class
+7,7L,3,0,,,,C07GU_1,C7 Guardian,32,RK,G7,32,Student Options Class
+7,7L,3,0,,,,C07GU_1,C7 Guardian,32,SBY,G7,32,Student Options Class
+7,7M,15,0,,,,MCHS_7,Morning Circle Class 07,32,RK,G7,32,Student Options Class
+7,7M,15,0,,,,MCHS_7,Morning Circle Class 07,32,SBY,G7,32,Student Options Class
+7,7N,7,0,,,,C07ML_1,Class 7 Main Lesson,32,TWH,G7,32,Student Options Class
+7,7O,7,0,,,,C07ML_1,Class 7 Main Lesson,32,SBY,G7,32,Student Options Class
+7,7O,7,0,,,,C07ML_1,Class 7 Main Lesson,32,RK,G7,32,Student Options Class
+7,7P,7,0,,,,C07ML_1,Class 7 Main Lesson,32,RK,C8,35,Student Options Class
+7,7P,7,0,,,,C07ML_1,Class 7 Main Lesson,32,SBY,C8,35,Student Options Class

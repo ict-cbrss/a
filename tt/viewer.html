@@ -104,6 +104,15 @@ td.clash .l { background: var(--bad); color: var(--bad-fg); }
 #room-settings input[type=number] { width: 64px; }
 #room-settings input.nm { width: 180px; }
 #settings label { display: inline-block; margin: 4px 12px 4px 0; }
+.avail th.tog { cursor: pointer; }
+.avail th.tog:hover { color: var(--accent); }
+#construct td, #construct th { font-size: 12px; }
+#construct td.n { text-align: right; }
+#construct tr.locked td { color: var(--muted); }
+#construct tr.sel td { background: var(--cell); }
+.look td.ok { background: var(--drop); }
+.look td.no { background: var(--bad); color: var(--bad-fg); }
+.look td.cur { font-weight: 700; }
 /* Per-teacher duty sheets print on A4 portrait */
 .sheet.a4 { page: a4; max-width: 720px; margin-left: auto; margin-right: auto; }
 .sheet.a4 h2 { font-size: 18px; }
@@ -207,6 +216,14 @@ th small { color: var(--muted); font-weight: 400; font-size: 11px; display: bloc
     <div class="loads"><table id="class-loads"></table></div>
   </div>
   <div id="group-avail" class="avail"></div>
+</div>
+<div id="construct" class="hidden">
+  <p class="note">The lines the solver will place: one per group, cross-year groups joined. <b>Lock</b> keeps a line exactly where the current timetable has it. Click a line to see where it could go: green cells are free of clashes with locked lines and of unavailability; red cells are not. The solver itself runs in the cloud (see README: <code>python -m tt solve</code>) and reads the locks from curriculum.csv.</p>
+  <div class="bar"><button type="button" id="lock-all">Lock all</button><button type="button" id="lock-none">Unlock all</button><span id="construct-info" class="summary"></span><span class="spacer"></span><button type="button" class="primary" id="dl-curriculum2">Download curriculum.csv</button></div>
+  <div class="side">
+    <div class="wrap"><table id="lines"></table></div>
+    <div id="lookahead" class="avail look"></div>
+  </div>
 </div>
 <div id="room-settings" class="hidden">
   <p class="note">Rooms with seats (used to warn when a class is bigger than its room) and the periods a room can't be used. Click a room's <b>Periods</b> button, then click cells to mark them unavailable.</p>
@@ -638,6 +655,7 @@ const VIEWS = {
   Teachers: {},
   Rooms:   {},
   Settings: {},
+  Construct: {},
   Issues:  {},
   Changes: {},
   Print:   {},
@@ -674,6 +692,7 @@ function renderGrid() {
   $("teacher-settings").classList.toggle("hidden", view !== "Teachers");
   $("room-settings").classList.toggle("hidden", view !== "Rooms");
   $("settings").classList.toggle("hidden", view !== "Settings");
+  $("construct").classList.toggle("hidden", view !== "Construct");
   $("info").textContent = "";
   if (view === "Print") { renderPrint(); return; }
   if (view === "Duties") { renderDuties(); return; }
@@ -681,6 +700,7 @@ function renderGrid() {
   if (view === "Classes") { renderClasses(); return; }
   if (view === "Rooms") { renderRooms(); return; }
   if (view === "Settings") { renderSettings(); return; }
+  if (view === "Construct") { renderConstruct(); return; }
   if (view === "Issues") {
     $("issues").innerHTML = issues.length ? `<ul class="issues">${issues.map(i =>
       `<li class="${i.severity}">${i.day ? `${esc(i.period ? dayPeriodLabel(i.day, i.period) : dayLabel(i.day))}: ` : ""}${esc(i.message)}</li>`).join("")}</ul>` : "<p>No issues found.</p>";
@@ -801,33 +821,46 @@ function renderAvail(container, title, unavailable, busyAt, kind, key) {
   if (!key) { el.innerHTML = ""; return; }
   const weekCls = d => { const b = blockOf(d); return b && b.days[0] === d && b.n > 1 ? "week" : ""; };
   let html = `<h2>${esc(title)} <button type="button" class="x" data-close="1">Close</button></h2><p class="note">Click a cell to mark it unavailable (red). Grey cells already have a lesson; a red grey cell with ! is a clash with the current timetable.</p><table><thead>`;
-  if (BLOCKS.length) html += `<tr><th></th>${BLOCKS.map(b => `<th class="block week" colspan="${b.days.filter(d => days.includes(d)).length}">${esc(b.short || b.name)}</th>`).join("")}</tr>`;
-  html += `<tr><th></th>${days.map(d => `<th class="${weekCls(d)}">${esc(weekdayOf(d).slice(0, 2))}</th>`).join("")}</tr></thead><tbody>`;
+  if (BLOCKS.length) html += `<tr><th></th>${BLOCKS.map(b => `<th class="block week tog" colspan="${b.days.filter(d => days.includes(d)).length}" data-tog-days="${b.days.filter(d => days.includes(d)).join(",")}" data-kind="${kind}" data-key="${esc(key)}" title="Toggle the whole block">${esc(b.short || b.name)}</th>`).join("")}</tr>`;
+  html += `<tr><th></th>${days.map(d => `<th class="${weekCls(d)} tog" data-tog-days="${d}" data-kind="${kind}" data-key="${esc(key)}" title="Toggle the whole day">${esc(weekdayOf(d).slice(0, 2))}</th>`).join("")}</tr></thead><tbody>`;
   for (const p of periods) {
-    html += `<tr><th>${esc(periodLabel(p))}</th>` + days.map(d => {
+    html += `<tr><th class="tog" data-tog-period="${p}" data-kind="${kind}" data-key="${esc(key)}" title="Toggle this period on every day">${esc(periodLabel(p))}</th>` + days.map(d => {
       const off = hasSlot(unavailable, d, p), busy = busyAt(d, p);
       return `<td class="${weekCls(d)} ${off ? "off" : ""} ${busy ? "busy" : ""}" data-d="${d}" data-p="${p}" data-kind="${kind}" data-key="${esc(key)}" title="${esc(busy || "")}">${off ? "U" : (busy ? "·" : "")}</td>`;
     }).join("") + "</tr>";
   }
   el.innerHTML = html + "</tbody></table>";
 }
-function toggleUnavailable(kind, key, d, p) {
-  const label = `${dayLabel(d)} ${periodLabel(p)}`;
-  apply(`${kind === "group" ? "Group " + groupLetter(key.split("|")[1]) + " (Year " + key.split("|")[0] + ")" : kind === "room" ? "Room " + key : key} ${"\u2192"} toggled unavailable ${label}`, s => {
-    let list;
-    if (kind === "teacher") { const t = s.teachers.find(x => x.code === key) || (s.teachers.push({...teacherOf(key)}), s.teachers[s.teachers.length - 1]); t.unavailable = t.unavailable || []; list = t.unavailable; }
-    else if (kind === "room") { const r = s.rooms.find(x => x.code === key) || (s.rooms.push({code: key, name: "", seats: null, unavailable: []}), s.rooms[s.rooms.length - 1]); list = r.unavailable; }
-    else { const [year, group] = key.split("|"); const rows = s.classes.filter(c => c.year === year && c.group === group);
-      const cur = parseSlots(rows[0].unavailable); const next = hasSlot(cur, d, p) ? cur.filter(x => !(x[0] === d && x[1] === p)) : [...cur, [d, p]];
-      for (const c of rows) c.unavailable = slotText(next); return; }
-    const i = list.findIndex(x => x[0] === d && x[1] === p);
-    if (i >= 0) list.splice(i, 1); else list.push([d, p]);
+// Toggle one or many slots: if every given slot is already unavailable they are cleared, else all are set.
+function toggleUnavailable(kind, key, slotsToToggle) {
+  const who = kind === "group" ? "Group " + groupLetter(key.split("|")[1]) + " (Year " + key.split("|")[0] + ")" : kind === "room" ? "Room " + key : key;
+  const label = slotsToToggle.length === 1 ? `${dayLabel(slotsToToggle[0][0])} ${periodLabel(slotsToToggle[0][1])}` : `${slotsToToggle.length} periods`;
+  apply(`${who}: toggled unavailable ${label}`, s => {
+    const getList = () => {
+      if (kind === "teacher") { const t = s.teachers.find(x => x.code === key) || (s.teachers.push({...teacherOf(key)}), s.teachers[s.teachers.length - 1]); t.unavailable = t.unavailable || []; return t.unavailable; }
+      if (kind === "room") { const r = s.rooms.find(x => x.code === key) || (s.rooms.push({code: key, name: "", seats: null, unavailable: []}), s.rooms[s.rooms.length - 1]); return r.unavailable; }
+      return parseSlots(s.classes.find(c => c.year === key.split("|")[0] && c.group === key.split("|")[1]).unavailable);
+    };
+    const list = getList();
+    const allOn = slotsToToggle.every(([d, p]) => hasSlot(list, d, p));
+    for (const [d, p] of slotsToToggle) {
+      const i = list.findIndex(x => x[0] === d && x[1] === p);
+      if (allOn) { if (i >= 0) list.splice(i, 1); } else if (i < 0) list.push([d, p]);
+    }
+    if (kind === "group") { const [year, group] = key.split("|"); for (const c of s.classes) if (c.year === year && c.group === group) c.unavailable = slotText(list); }
   });
 }
 for (const id of ["teacher-avail", "room-avail", "group-avail"]) $(id).addEventListener("click", e => {
   if (e.target.closest("[data-close]")) { availShown = {}; renderAll(); return; }
+  const th = e.target.closest("th.tog");
+  if (th) {
+    const ds = th.dataset.togDays ? th.dataset.togDays.split(",").map(Number) : days;
+    const ps = th.dataset.togPeriod ? [Number(th.dataset.togPeriod)] : periods;
+    toggleUnavailable(th.dataset.kind, th.dataset.key, ds.flatMap(d => ps.map(p => [d, p])));
+    return;
+  }
   const td = e.target.closest("td[data-kind]"); if (!td) return;
-  toggleUnavailable(td.dataset.kind, td.dataset.key, Number(td.dataset.d), Number(td.dataset.p));
+  toggleUnavailable(td.dataset.kind, td.dataset.key, [[Number(td.dataset.d), Number(td.dataset.p)]]);
 });
 const teacherBusy = t => (d, p) => { const l = state.lessons.find(l => l.day === d && l.period === p && l.teacher === t); return l ? `${className(l.class_code, d)} in ${l.room}` : ""; };
 const roomBusy = r => (d, p) => { const l = state.lessons.find(l => l.day === d && l.period === p && l.room === r); return l ? `${className(l.class_code, d)} with ${l.teacher}` : ""; };
@@ -895,6 +928,7 @@ $("dl-school").addEventListener("click", () => {
 
 // ---------- class information (Timetabler [7A]) ----------
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const isYes = v => ["y", "yes", "true", "1"].includes(String(v || "").trim().toLowerCase());
 const groupLetter = g => g.replace(/^\d+/, "");
 // Groups of a year in letter order, each with its rows.
 function groupsOf(s, year) {
@@ -930,6 +964,7 @@ function renderClasses() {
   const field = (label, f, cls = "num", type = "number") => `<tr><td class="rowhead">${label}</td>` + groups.map(g =>
     `<td><input type="${type}" min="0" class="${cls}" data-g="${esc(g.group)}" data-f="${f}" value="${esc(g.rows[0][f])}" aria-label="${label} for group ${esc(groupLetter(g.group))}"></td>`).join("") + "</tr>";
   html += field("Periods", "periods") + field("Doubles", "doubles") + field("Cross-year", "mrcg", "num", "text");
+  html += `<tr><td class="rowhead">Locked</td>` + groups.map(g => `<td><label><input type="checkbox" data-g="${esc(g.group)}" data-f="locked" ${isYes(g.rows[0].locked) ? "checked" : ""} aria-label="Lock group ${esc(groupLetter(g.group))}"> keep current slots</label></td>`).join("") + "</tr>";
   html += `<tr><td class="rowhead">Classes</td>` + groups.map(g => `<td class="${g.rows[0].mrcg ? "mrcg-1" : ""}">` + g.rows.map(c => `<div class="cls" data-g="${esc(g.group)}" data-c="${esc(c.class_code)}">` +
       `<b title="${esc(c.class_code)}">${esc(c.class_name || className(c.class_code))} <button type="button" class="x" data-rm-g="${esc(g.group)}" data-rm-c="${esc(c.class_code)}" title="Remove from group">✕</button></b>` +
       `<div class="row"><small>Teacher</small><select data-g="${esc(g.group)}" data-c="${esc(c.class_code)}" data-f="teacher" aria-label="Teacher of ${esc(c.class_code)}">${opt(teachers, c.teacher)}</select></div>` +
@@ -956,12 +991,12 @@ $("class-grid").addEventListener("change", e => {
     apply(`Added ${code} to group ${groupLetter(group)} (Year ${year})`, s => {
       const first = groupRows(s, year, group)[0];
       const tmpl = s.classes.find(c => c.class_code === code) || {};   // same class elsewhere: copy its teacher/room
-      s.classes.push({year, group, periods: first.periods, doubles: first.doubles, mrcg: first.mrcg, unavailable: first.unavailable || "", class_code: code,
+      s.classes.push({year, group, periods: first.periods, doubles: first.doubles, mrcg: first.mrcg, unavailable: first.unavailable || "", locked: first.locked || "", class_code: code,
         class_name: className(code), students: tmpl.students || "", teacher: tmpl.teacher || "", room: tmpl.room || "", seats: tmpl.seats || "", class_type: tmpl.class_type || ""});
     });
     return;
   }
-  const group = el.dataset.g, f = el.dataset.f, value = el.value.trim();
+  const group = el.dataset.g, f = el.dataset.f, value = el.type === "checkbox" ? (el.checked ? "yes" : "") : el.value.trim();
   if (el.dataset.c) {
     apply(`Set ${el.dataset.c} ${f} = ${value || "none"} in group ${groupLetter(group)}`, s => {
       for (const c of groupRows(s, year, group)) if (c.class_code === el.dataset.c) c[f] = value;
@@ -1008,16 +1043,98 @@ $("group-add").addEventListener("click", () => {
   apply(`Added group with ${code.trim()} (Year ${year})`, s => {
     const n = groupsOf(s, year).length;
     const tmpl = s.classes.find(c => c.class_code === code.trim()) || {};
-    s.classes.push({year, group: year + LETTERS[n], periods: "3", doubles: "0", mrcg: "", unavailable: "", class_code: code.trim(), class_name: className(code.trim()),
+    s.classes.push({year, group: year + LETTERS[n], periods: "3", doubles: "0", mrcg: "", unavailable: "", locked: "", class_code: code.trim(), class_name: className(code.trim()),
       students: tmpl.students || "", teacher: tmpl.teacher || "", room: tmpl.room || "", seats: tmpl.seats || "", class_type: tmpl.class_type || ""});
   });
 });
 $("dl-curriculum").addEventListener("click", () => {
-  const cols = ["year", "group", "periods", "doubles", "mrcg", "unavailable", "class_code", "class_name", "students", "teacher", "room", "seats", "class_type"];
+  downloadCurriculum();
+});
+function downloadCurriculum() {
+  const cols = ["year", "group", "periods", "doubles", "mrcg", "unavailable", "locked", "class_code", "class_name", "students", "teacher", "room", "seats", "class_type"];
   const q = v => /[",\n]/.test(v) ? `"${String(v).replace(/"/g, '""')}"` : v;
   const rows = state.classes.slice().sort((a, b) => yearSort(a.year, b.year) || natural(groupLetter(a.group), groupLetter(b.group)));
   download("curriculum.csv", [cols, ...rows.map(c => cols.map(k => q(c[k] ?? "")))], "\n");
+}
+$("dl-curriculum2").addEventListener("click", downloadCurriculum);
+
+// ---------- construct: lines, locks and a lookahead of free slots ----------
+// Lines mirror tt/solve.py: one per group, groups sharing an mrcg number joined.
+function buildLines() {
+  const active = new Set(state.lessons.map(l => l.year));
+  const rows = state.classes.filter(c => !active.size || active.has(c.year));
+  const byGroup = new Map();
+  for (const c of rows) { const k = c.year + "|" + c.group; (byGroup.get(k) || byGroup.set(k, []).get(k)).push(c); }
+  const byMrcg = new Map();
+  for (const [k, cs] of byGroup) if (cs[0].mrcg) (byMrcg.get(cs[0].mrcg) || byMrcg.set(cs[0].mrcg, []).get(cs[0].mrcg)).push(k);
+  const done = new Set(), lines = [];
+  for (const [k, cs] of byGroup) {
+    if (done.has(k)) continue;
+    const keys = cs[0].mrcg ? byMrcg.get(cs[0].mrcg) : [k];
+    keys.forEach(x => done.add(x));
+    const classes = keys.flatMap(x => byGroup.get(x));
+    const codes = new Set(classes.map(c => c.class_code));
+    lines.push({key: keys.map(x => x.replace("|", "").replace(/^(\d+)\1/, "$1")).join("+"), keys, classes,
+      years: new Set(classes.map(c => c.year)), teachers: new Set(classes.map(c => c.teacher).filter(Boolean)),
+      rooms: new Set(classes.map(c => c.room).filter(Boolean)), periods: Number(cs[0].periods) || 0, doubles: Number(cs[0].doubles) || 0,
+      locked: isYes(cs[0].locked), unavailable: parseSlots(cs[0].unavailable),
+      current: new Set(state.lessons.filter(l => codes.has(l.class_code)).map(l => slotKey(l.day, l.period)))});
+  }
+  return lines.sort((a, b) => natural(a.key, b.key));
+}
+// Why a line can't go in a slot, considering locked lines, availability and restricted periods; "" if it can.
+function lineBlocked(line, lines, d, p) {
+  const restricted = CFG.restricted_periods || {};
+  if (restricted[p] && ![...line.years].every(y => restricted[p].includes(y))) return `${periodLabel(p)} is for ${restricted[p].length ? "Year " + restricted[p].join("/") + " only" : "no year"}`;
+  if (hasSlot(line.unavailable, d, p)) return "group unavailable";
+  for (const t of line.teachers) { const ts = teacherOf(t); if (ts.away_days.includes(d)) return `${t} away`; if (hasSlot(ts.unavailable || [], d, p)) return `${t} unavailable`; }
+  for (const r of line.rooms) if (hasSlot(roomOf(r).unavailable, d, p)) return `${r} unavailable`;
+  for (const o of lines) {
+    if (o === line || !o.locked || !o.current.has(slotKey(d, p))) continue;
+    if ([...o.years].some(y => line.years.has(y))) return `Year ${[...o.years].find(y => line.years.has(y))} has ${o.key} (locked)`;
+    const t = [...o.teachers].find(t => line.teachers.has(t)); if (t) return `${t} teaches ${o.key} (locked)`;
+    const r = [...o.rooms].find(r => line.rooms.has(r)); if (r) return `${r} used by ${o.key} (locked)`;
+  }
+  return "";
+}
+let selectedLine = null;
+function renderConstruct() {
+  const lines = buildLines();
+  const locked = lines.filter(l => l.locked).length;
+  $("construct-info").textContent = `${lines.length} lines · ${locked} locked · ${lines.reduce((n, l) => n + l.periods, 0)} periods to place`;
+  $("lines").innerHTML = `<thead><tr><th>Lock</th><th>Line</th><th>Classes</th><th>Periods</th><th>Dbl</th><th>Teachers</th><th>Rooms</th><th>Now</th></tr></thead><tbody>` +
+    lines.map(l => `<tr class="${l.locked ? "locked" : ""} ${l.key === selectedLine ? "sel" : ""}" data-line="${esc(l.key)}"><td><input type="checkbox" data-lock="${esc(l.key)}" ${l.locked ? "checked" : ""} aria-label="Lock ${esc(l.key)}"></td>` +
+      `<td><b>${esc(l.key)}</b></td><td>${esc([...new Set(l.classes.map(c => c.class_name || c.class_code))].join(", "))}</td><td class="n">${l.periods}</td><td class="n">${l.doubles || ""}</td>` +
+      `<td>${esc([...l.teachers].join(" "))}</td><td>${esc([...l.rooms].join(" "))}</td><td class="n ${l.current.size !== l.periods ? "warn" : ""}">${l.current.size}</td></tr>`).join("") + "</tbody>";
+  const line = lines.find(l => l.key === selectedLine);
+  if (!line) { $("lookahead").innerHTML = "<p class=\"note\">Click a line to see where it can go.</p>"; return; }
+  const weekCls = d => { const b = blockOf(d); return b && b.days[0] === d && b.n > 1 ? "week" : ""; };
+  let html = `<h2>Where ${esc(line.key)} can go</h2><p class="note">${line.periods} periods${line.doubles ? `, ${line.doubles} doubles` : ""} · green = free, red = blocked (hover for why), bold = where it is now.</p><table><thead>`;
+  if (BLOCKS.length) html += `<tr><th></th>${BLOCKS.map(b => `<th class="block week" colspan="${b.days.filter(d => days.includes(d)).length}">${esc(b.short || b.name)}</th>`).join("")}</tr>`;
+  html += `<tr><th></th>${days.map(d => `<th class="${weekCls(d)}">${esc(weekdayOf(d).slice(0, 2))}</th>`).join("")}</tr></thead><tbody>`;
+  let free = 0;
+  for (const p of periods) {
+    html += `<tr><th>${esc(periodLabel(p))}</th>` + days.map(d => {
+      const why = lineBlocked(line, lines, d, p); if (!why) free++;
+      return `<td class="${weekCls(d)} ${why ? "no" : "ok"} ${line.current.has(slotKey(d, p)) ? "cur" : ""}" title="${esc(why)}">${line.current.has(slotKey(d, p)) ? "●" : ""}</td>`;
+    }).join("") + "</tr>";
+  }
+  $("lookahead").innerHTML = html + `</tbody></table><p class="note">${free} free slots for ${line.periods} periods.</p>`;
+}
+$("lines").addEventListener("click", e => {
+  const cb = e.target.closest("input[data-lock]");
+  if (cb) { setLock(cb.dataset.lock, cb.checked); return; }
+  const tr = e.target.closest("tr[data-line]"); if (!tr) return;
+  selectedLine = tr.dataset.line; renderConstruct();
 });
+function setLock(key, on, silent) {
+  const line = buildLines().find(l => l.key === key); if (!line) return;
+  apply(`${on ? "Locked" : "Unlocked"} line ${key}`, s => {
+    for (const k of line.keys) { const [year, group] = k.split("|"); for (const c of s.classes) if (c.year === year && c.group === group) c.locked = on ? "yes" : ""; }
+  });
+}
+$("lock-all").addEventListener("click", () => apply("Locked every line", s => { for (const c of s.classes) c.locked = "yes"; }));
+$("lock-none").addEventListener("click", () => apply("Unlocked every line", s => { for (const c of s.classes) c.locked = ""; }));
 
 // ---------- teacher settings ----------
 function renderTeachers() {

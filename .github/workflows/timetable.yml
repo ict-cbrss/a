@@ -1,0 +1,57 @@
+# Build the timetable in the cloud: nothing to install on anyone's computer.
+#
+# Run it from GitHub: Actions -> "Build timetable" -> Run workflow. It reads
+# timetable/TTable.txt (the current timetable; no student data) and config/,
+# runs the checks, the solver (unless told not to) and the print sheets, and
+# publishes everything as a downloadable artifact: the editor page, the new
+# TTable.txt for TASS, and the PDFs.
+#
+# SCourse.txt holds student names, so it is not kept in the repository. The
+# cloud build therefore has empty student views and no student-clash check;
+# run `python -m tt check` with both files where SCourse.txt is kept to see
+# student clashes.
+name: Build timetable
+
+on:
+  workflow_dispatch:
+    inputs:
+      solve:
+        description: "Run the solver (otherwise just check, build the editor and the PDFs)"
+        type: boolean
+        default: true
+      time:
+        description: "Seconds the solver may search"
+        default: "120"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: |
+          pip install ortools playwright
+          playwright install --with-deps chromium
+      - name: Student file (empty placeholder; see note at top)
+        run: |
+          mkdir -p out
+          : > out/SCourse.txt
+      - name: Check the current timetable
+        run: python -m tt check timetable/TTable.txt out/SCourse.txt || true
+      - name: Solve
+        if: ${{ inputs.solve }}
+        run: python -m tt solve timetable/TTable.txt out/SCourse.txt -o out/solved -t ${{ inputs.time }}
+      - name: Editor and PDFs for the result
+        run: |
+          SRC=timetable/TTable.txt
+          if [ -f out/solved/TTable.txt ]; then SRC=out/solved/TTable.txt; fi
+          python -m tt report "$SRC" out/SCourse.txt -o out/timetable.html
+          python -m tt pdf "$SRC" out/SCourse.txt -o out/pdf
+          cp "$SRC" out/TTable.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: timetable
+          path: out

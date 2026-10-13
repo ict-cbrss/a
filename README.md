@@ -18,6 +18,7 @@ python -m tt check  data/TTable.txt data/SCourse.txt          # list clashes (ex
 python -m tt report data/TTable.txt data/SCourse.txt -o data/timetable.html
 python -m tt export data/TTable.txt data/SCourse.txt -o data/out   # files ready for TASS import
 python -m tt pdf    data/TTable.txt data/SCourse.txt -o data/pdf   # PDFs of every print sheet (needs playwright)
+python -m tt solve  data/TTable.txt data/SCourse.txt -o data/solved -t 120   # construct a timetable from the plan (needs ortools)
 python -m unittest                                             # tests (synthetic data only)
 PLAYWRIGHT_CHROMIUM=/path/to/chromium python -m unittest       # also runs the browser tests (pip install playwright)
 ```
@@ -71,6 +72,54 @@ per year, `yard-duty-roster.pdf`, and one `duties-CODE.pdf` per teacher.
 It needs `pip install playwright` and a Chromium (`playwright install
 chromium`, or point `PLAYWRIGHT_CHROMIUM` at one). The per-teacher PDFs are
 what an emailing step would attach.
+
+### Construct Timetable (the solver)
+
+`python -m tt solve` is Timetabler's [12]/[13] step: it places every group
+(line) from `curriculum.csv` into periods of the cycle with OR-Tools CP-SAT
+(`pip install ortools`). Rules it keeps: a year is in one line per slot; no
+teacher or room in two lines at once; teacher, room and group unavailable
+periods and teacher days away; the doubles each group needs (on the pairs
+marked in Settings); at most two lessons of a group per day (the main lesson
+is two periods); teachers' minimum periods off per day and maximum
+consecutive lessons; periods reserved for certain years
+(`restricted_periods` in school.json, e.g. after school for Year 12 only).
+
+**Locked** groups (tick in the Classes tab, or the Construct tab) keep
+exactly the slots they have in the current `TTable.txt`. For everything
+else the solver prefers the current timetable where it still fits, so a
+re-solve moves as little as possible. Classes with no room in the plan use
+the room they mostly have in the current timetable, avoiding rooms already
+taken in their line. The output is a new `TTable.txt` (plus a copy of
+SCourse.txt) in `solved/`, with a list of which lines moved and the result
+of `check`. If no timetable satisfies the plan, it says which plan rows
+contradict each other, or retries with one rule family dropped at a time
+(doubles, spread, teacher limits, availability) and reports which one made
+it feasible.
+
+The **Construct** tab in the editor lists the lines with their classes,
+periods, teachers, rooms and how many periods they currently have, with a
+lock tick per line (Lock all / Unlock all). Click a line to see where it
+could go: green cells are free of clashes with locked lines, unavailability
+and restricted periods; red cells say why not; bold dots mark where it is
+now. This is a static lookahead; the solver does the full search.
+
+### Running it in the cloud
+
+Nothing needs installing on a laptop. `.github/workflows/timetable.yml` is
+a GitHub Actions workflow: Actions → **Build timetable** → Run workflow. It
+checks `timetable/TTable.txt` (the current timetable, kept in the repo; it
+holds class, teacher and room codes, no student data), runs the solver
+unless told not to, builds the editor page and all PDFs, and publishes them
+as a downloadable artifact. To run a cycle: edit the plan and settings in
+the editor, download the CSVs into `config/`, commit (GitHub's web upload
+works), run the workflow, download the artifact, import `TTable.txt` into
+TASS.
+
+`SCourse.txt` has student names, so it stays out of the repository; the
+cloud build's student views are empty and it can't check student clashes.
+Run `python -m tt check` with both files wherever SCourse.txt is kept for
+that, or, later, the staff portal can hold it.
 
 ## School configuration (`config/`)
 
@@ -235,9 +284,8 @@ Next, in order:
 2. ✅ **Small config screens**: rooms with seats [5]; teacher max periods,
    unavailable periods, periods off per day [4A, 1E]; periods a group may
    not use [13B]; which period pairs count as doubles [1C].
-3. **Construct Timetable** [12, 13]: the solver (OR-Tools CP-SAT) with
-   pinned/locked groups, a lookahead view of which periods stay feasible,
-   spread rules [1D], and a check of spread and days off [13J].
+3. ✅ **Construct Timetable** [12, 13]: solver with locked groups, a
+   lookahead view, spread and teacher-limit rules, cloud workflow.
 4. **Remaining prints**: teacher, room and student timetables, class lists,
    teacher loads, statistics, free teachers/rooms on the master.
 5. Student subject choices and line building (Student Options module) - on

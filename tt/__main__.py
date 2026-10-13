@@ -99,23 +99,67 @@ def cmd_pdf(args):
     return 0
 
 
+def cmd_solve(args):
+    """Place every unlocked group into the cycle (needs ortools)."""
+    try:
+        import ortools  # noqa: F401
+    except ImportError:
+        print("pip install ortools", file=sys.stderr)
+        return 2
+    from . import solve as solver
+    lessons, enrolments = _load(args)
+    cfg = config.load(args.config)
+    days = sorted({d for b in cfg["blocks"] for d in b["days"]} | {l.day for l in lessons})
+    periods = sorted(cfg.get("teaching_periods") or {l.period for l in lessons} or {i for p in cfg["periods"] for i in p["ids"]})
+    years = set(args.years.split(",")) if args.years else ({l.year for l in lessons} or None)
+    print(f"{len(days)} days x {len(periods)} periods, years {','.join(sorted(years, key=lambda y: -int(y))) if years else 'all'}, "
+          f"time limit {args.time}s")
+    status, new, report = solver.solve_with_diagnosis(cfg, lessons, days, periods, years, args.time)
+    for p in report.get("problems", []):
+        print(f"[plan] {p}")
+    locked = [l.key for l in report["lines"] if l.locked]
+    print(f"{len(report['lines'])} lines ({len(locked)} locked), status {status}" + (f", relaxed: {', '.join(report['relaxed'])}" if report.get("relaxed") else ""))
+    if status == "INFEASIBLE":
+        print("No timetable satisfies the plan. Fix the problems above or loosen the constraints.")
+        return 1
+    total = sum(l.periods for l in report["lines"])
+    print(f"{report['kept']} of {total} placements are where the current timetable has them; {len(report['moved'])} lines got new slots:")
+    for key, kept, new_slots in report["moved"]:
+        print(f"  {key}: kept {kept}, new {', '.join(f'{d}:{p}' for d, p in new_slots)}")
+    out = Path(args.out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    formats.write_timetable(out / "TTable.txt", new)
+    formats.write_enrolments(out / "SCourse.txt", enrolments)
+    issues = validate.check(new, enrolments, cfg["planned"])
+    errs = [i for i in issues if i.severity == "error"]
+    print(f"Wrote {out / 'TTable.txt'} ({len(new)} rows) and SCourse.txt; check: {len(errs)} errors, {len(issues) - len(errs)} warnings")
+    for i in errs[:20]:
+        print(f"  [error] {i.message}")
+    return 0
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(prog="tt", description="TASS timetable file tools")
     sub = p.add_subparsers(dest="cmd", required=True)
     for name, fn, help_ in [("check", cmd_check, "list clashes and data problems"),
                             ("report", cmd_report, "write an HTML timetable viewer"),
                             ("export", cmd_export, "write TASS import files"),
-                            ("pdf", cmd_pdf, "write the print sheets as PDFs (needs playwright)")]:
+                            ("pdf", cmd_pdf, "write the print sheets as PDFs (needs playwright)"),
+                            ("solve", cmd_solve, "construct a timetable from the plan (needs ortools)")]:
         s = sub.add_parser(name, help=help_)
         s.add_argument("ttable", help="TTable.txt")
         s.add_argument("scourse", help="SCourse.txt")
-        if name in ("check", "report", "pdf"):
+        if name in ("check", "report", "pdf", "solve"):
             s.add_argument("-c", "--config", default="config" if Path("config").is_dir() else None,
                            help="folder with school.json, classnames.csv, curriculum.csv (default: ./config if present)")
         if name == "report":
             s.add_argument("-o", "--out", default="timetable.html")
         if name == "export":
             s.add_argument("-o", "--out-dir", default="out")
+        if name == "solve":
+            s.add_argument("-o", "--out-dir", default="solved")
+            s.add_argument("-t", "--time", type=int, default=60, help="seconds to search (default 60)")
+            s.add_argument("-y", "--years", help="comma-separated years to build (default: years in TTable.txt)")
         if name == "pdf":
             s.add_argument("-o", "--out-dir", default="pdf")
             s.add_argument("-w", "--what", nargs="+", default=["master", "years", "roster", "dutysheets"],
