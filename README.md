@@ -180,27 +180,31 @@ sample export. Confirm them against the TASS import documentation.
 
 ## Roadmap
 
-Mapped against Timetabler V10's Timetable Development tasks.
+Mapped against Timetabler V10's Timetable Development tasks; the full
+task-by-task comparison is in `docs/timetabler-reference.md`.
 
 Done: read/check/export the TASS files (Quick Export); Edit Timetable [14];
-Check Timetable [16]; master, class and yard duty prints [17, 21, 24];
-yard duty allocation with availability and loads [15]; teacher duty
-settings [4A part]; cycle parameters [1]; class information as data [7A].
+Check Timetable [16]; master, class and yard duty prints [17, 18, 24];
+yard duty allocation with availability, caps and auto-fill [15]; teacher
+duty settings [4A part]; cycle parameters [1B/1C part]; class information
+as data [7A].
 
 Next, in order:
 
-1. **Class Information editor** [7A]: periods per cycle, doubles, teacher,
-   room, seats per class, saved to `curriculum.csv`.
-2. **Rooms and teacher limits** [5, 4A]: `rooms.csv` (type, capacity);
-   teacher max periods and unavailable periods, not just days.
-3. **Blocking Pattern** [12]: define lines (classes that run together) and
-   their periods; this is what TTable columns 7-9 describe.
-4. **Construct Timetable** [13] with a Lookahead view: the solver (OR-Tools
-   CP-SAT), showing which periods stay feasible for each block.
-5. **Automatic rooming** [13E] and room usage records [13H].
-6. Remaining print layouts: teacher, room, student timetables, class
-   lists, statistics [18-20, 22, 23, 25].
-7. Per-session duty loads [10B].
-8. Student subject choices and line building (Student Options module) - on
+1. **Class Information editor** [7A, 7E]: groups (lines) per year with
+   periods, doubles, teacher, room, seats, and cross-year groups (MRCGs),
+   saved to `curriculum.csv`.
+2. **Small config screens**: rooms with seats [5]; teacher max periods,
+   unavailable periods, periods off per day [4A, 1E]; periods a group may
+   not use [13B]; which period pairs count as doubles [1C].
+3. **Construct Timetable** [12, 13]: the solver (OR-Tools CP-SAT) with
+   pinned/locked groups, a lookahead view of which periods stay feasible,
+   spread rules [1D], and a check of spread and days off [13J].
+4. **Remaining prints**: teacher, room and student timetables, class lists,
+   teacher loads, statistics, free teachers/rooms on the master.
+5. Student subject choices and line building (Student Options module) - on
    hold.
-9. Publish to a web daily organiser - via the staff portal, later.
+6. Publish to a web daily organiser - via the staff portal, later.
+
+Skipped on purpose (big-school features): faculties, bands, RURs (room
+pools), meetings, multiple sites, FTE loads.
