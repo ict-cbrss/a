@@ -180,8 +180,27 @@ sample export. Confirm them against the TASS import documentation.
 
 ## Roadmap
 
-1. ✅ Read, check, view and re-export the TASS import files.
-2. ✅ Editing with live clash checks, then export.
-2b. ✅ Real day/period labels, class names, printable master and class timetables.
-3. Line builder: build elective lines from student subject choices.
-4. Solver (OR-Tools CP-SAT) to place classes in periods and rooms.
+Mapped against Timetabler V10's Timetable Development tasks.
+
+Done: read/check/export the TASS files (Quick Export); Edit Timetable [14];
+Check Timetable [16]; master, class and yard duty prints [17, 21, 24];
+yard duty allocation with availability and loads [15]; teacher duty
+settings [4A part]; cycle parameters [1]; class information as data [7A].
+
+Next, in order:
+
+1. **Class Information editor** [7A]: periods per cycle, doubles, teacher,
+   room, seats per class, saved to `curriculum.csv`.
+2. **Rooms and teacher limits** [5, 4A]: `rooms.csv` (type, capacity);
+   teacher max periods and unavailable periods, not just days.
+3. **Blocking Pattern** [12]: define lines (classes that run together) and
+   their periods; this is what TTable columns 7-9 describe.
+4. **Construct Timetable** [13] with a Lookahead view: the solver (OR-Tools
+   CP-SAT), showing which periods stay feasible for each block.
+5. **Automatic rooming** [13E] and room usage records [13H].
+6. Remaining print layouts: teacher, room, student timetables, class
+   lists, statistics [18-20, 22, 23, 25].
+7. Per-session duty loads [10B].
+8. Student subject choices and line building (Student Options module) - on
+   hold.
+9. Publish to a web daily organiser - via the staff portal, later.
