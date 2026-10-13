@@ -68,7 +68,9 @@ reflects any unsaved edits and says so in its footer.
 - **classnames.csv**: `code,name,block`. Display name for each TASS class
   code; `block` is blank for all blocks, or a block number when the name
   changes per block (main lessons). Names are Timetabler's own, from its
-  Class Details report; Year 11 is listed for terms that have it.
+  Class Names report, which also lists Year 11 and classes defined but not
+  running this term (0 periods); they are included so they can be added in
+  the editor by code.
 - **curriculum.csv**: Timetabler's Class Details report as a table: per
   year and line group, periods per cycle, doubles, class code and name,
   student count, teacher, room, seats. `check` uses it to warn when a class
