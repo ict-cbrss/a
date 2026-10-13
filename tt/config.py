@@ -16,11 +16,14 @@ A config directory holds:
   duties.csv      day,block,weekday,slot,duty,teacher - yard duty roster from
                   Timetabler's Yard Duties report. Edited in the editor's
                   Duties tab, which downloads a replacement for this file.
-  teachers.csv    code,name,email,max_duties,no_duties,away_days - duty
-                  settings per teacher: a cap on duties per cycle, whether
-                  they do duties at all, and the cycle days they are away
-                  (semicolon-separated day numbers). Edited in the editor's
-                  Teachers tab, which downloads a replacement for this file.
+  teachers.csv    per-teacher settings: duty cap (max_duties), no_duties,
+                  away_days (semicolon-separated day numbers), max_periods
+                  per cycle, min_off_per_day, max_consecutive lessons, and
+                  unavailable periods ("day:period;day:period"). Edited in
+                  the editor's Teachers tab, which downloads a replacement.
+  rooms.csv       code,name,seats,unavailable - rooms with capacity and
+                  unavailable periods. Edited in the Rooms tab.
+A "slots" value anywhere is "day:period" tokens separated by semicolons.
 All are optional; without them the editor shows Day N / PN and class codes.
 """
 import csv
@@ -37,6 +40,7 @@ def load(directory):
     cfg["classes"] = []
     cfg["duties"] = []
     cfg["teachers"] = []
+    cfg["rooms"] = []
     if not directory:
         return cfg
     directory = Path(directory)
@@ -57,8 +61,8 @@ def load(directory):
                 if not row["class_code"]:
                     continue
                 cfg["classes"].append({k: (row.get(k) or "") for k in
-                                       ("year", "group", "periods", "doubles", "mrcg", "class_code", "class_name",
-                                        "students", "teacher", "room", "seats", "class_type")})
+                                       ("year", "group", "periods", "doubles", "mrcg", "unavailable", "class_code",
+                                        "class_name", "students", "teacher", "room", "seats", "class_type")})
                 # A class in several groups gets their periods added; a group is counted once per class.
                 key = (row["class_code"], row["group"])
                 if key in seen:
@@ -79,5 +83,20 @@ def load(directory):
                         "max_duties": int(r["max_duties"]) if r.get("max_duties") else None,
                         "no_duties": (r.get("no_duties") or "").strip().lower() in ("y", "yes", "true", "1"),
                         "away_days": [int(x) for x in (r.get("away_days") or "").split(";") if x.strip()],
+                        "max_periods": int(r["max_periods"]) if r.get("max_periods") else None,
+                        "min_off_per_day": int(r["min_off_per_day"]) if r.get("min_off_per_day") else None,
+                        "max_consecutive": int(r["max_consecutive"]) if r.get("max_consecutive") else None,
+                        "unavailable": _slots(r.get("unavailable")),
                     })
+    rooms = directory / "rooms.csv"
+    if rooms.exists():
+        with rooms.open(encoding="utf-8", newline="") as f:
+            cfg["rooms"] = [{"code": r["code"], "name": r.get("name", ""), "seats": int(r["seats"]) if r.get("seats") else None,
+                             "unavailable": _slots(r.get("unavailable"))}
+                            for r in csv.DictReader(f) if r["code"]]
     return cfg
+
+
+def _slots(text):
+    """'1:5;3:2' -> [[1, 5], [3, 2]] (day, period pairs)."""
+    return [[int(a), int(b)] for a, b in (x.split(":") for x in (text or "").split(";") if x.strip())]

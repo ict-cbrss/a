@@ -92,6 +92,18 @@ td.clash .l { background: var(--bad); color: var(--bad-fg); }
 #class-grid td.over { background: var(--bad); }
 #class-grid td.mrcg-1 { box-shadow: inset 3px 0 var(--accent); }
 .loads td.warn { color: var(--warn-fg); font-weight: 700; }
+/* Availability grid: periods an entity cannot use */
+.avail { margin-top: 12px; }
+.avail h2 { margin: 0 0 6px; }
+.avail table { width: auto; }
+.avail td { min-width: 34px; text-align: center; cursor: pointer; font-size: 11px; padding: 2px; }
+.avail td.busy { color: var(--muted); background: var(--head); }
+.avail td.off { background: var(--bad); color: var(--bad-fg); font-weight: 700; }
+.avail td.off.busy::after { content: " !"; }
+#room-settings td { padding: 2px 4px; font-size: 12px; }
+#room-settings input[type=number] { width: 64px; }
+#room-settings input.nm { width: 180px; }
+#settings label { display: inline-block; margin: 4px 12px 4px 0; }
 /* Per-teacher duty sheets print on A4 portrait */
 .sheet.a4 { page: a4; max-width: 720px; margin-left: auto; margin-right: auto; }
 .sheet.a4 h2 { font-size: 18px; }
@@ -194,11 +206,24 @@ th small { color: var(--muted); font-weight: 400; font-size: 11px; display: bloc
     <div class="wrap"><table id="class-grid"></table></div>
     <div class="loads"><table id="class-loads"></table></div>
   </div>
+  <div id="group-avail" class="avail"></div>
+</div>
+<div id="room-settings" class="hidden">
+  <p class="note">Rooms with seats (used to warn when a class is bigger than its room) and the periods a room can't be used. Click a room's <b>Periods</b> button, then click cells to mark them unavailable.</p>
+  <div class="bar"><button type="button" id="room-add">Add room</button><span class="spacer"></span><button type="button" class="primary" id="dl-rooms">Download rooms.csv</button><span class="summary">Replace config/rooms.csv with this file to keep the settings.</span></div>
+  <div class="wrap"><table id="room-grid"></table></div>
+  <div id="room-avail" class="avail"></div>
+</div>
+<div id="settings" class="hidden">
+  <p class="note">Which consecutive periods count as a double (one lesson across two periods). Pairs split by a break should be left unticked, so a class in the period before and after lunch is not a double.</p>
+  <div id="doubles"></div>
+  <div class="bar"><button type="button" class="primary" id="dl-school">Download school.json</button><span class="summary">Replace config/school.json with this file to keep the setting.</span></div>
 </div>
 <div id="teacher-settings" class="hidden">
-  <p class="note">Duty settings per teacher. <b>Max</b> caps duties per cycle (blank = no cap). <b>No duties</b> keeps them out of the roster. Tick the days they are away; the builder won't roster them then. Name and email are for the duty sheets and for emailing them.</p>
+  <p class="note">Per teacher: <b>Max duties</b> caps yard duties per cycle; <b>No duties</b> keeps them off the roster; <b>Max periods</b>, <b>Min off/day</b> and <b>Max consec.</b> limit teaching (used by the solver and the loads check); tick the days they are away; <b>Periods</b> marks individual periods they can't teach. Name and email are for the duty sheets and for emailing them.</p>
   <div class="bar"><button type="button" class="primary" id="dl-teachers">Download teachers.csv</button><span class="summary">Replace config/teachers.csv with this file to keep the settings.</span></div>
   <div class="wrap"><table id="teacher-grid"></table></div>
+  <div id="teacher-avail" class="avail"></div>
 </div>
 <div id="print" class="hidden">
   <div class="bar noprint">
@@ -250,11 +275,15 @@ const ORIGINAL = {
   dutyDefs: [],   // [slot, duty] rows added in the builder that have no assignment yet
   teachers: ((DATA.config || {}).teachers || []).map(t => ({...t, away_days: t.away_days.slice()})),
   classes: ((DATA.config || {}).classes || []).map(c => ({...c})),   // curriculum rows: one per class per group
+  rooms: ((DATA.config || {}).rooms || []).map(r => ({...r, unavailable: r.unavailable.map(x => x.slice())})),
+  doubles: (((DATA.config || {}).doubles) || []).map(x => x.slice()),
 };
 const clone = s => ({ lessons: s.lessons.map(l => ({...l})), enrolments: s.enrolments.map(e => ({...e})),
   duties: (s.duties || []).map(d => ({...d})), dutyDefs: (s.dutyDefs || []).map(d => d.slice()),
-  teachers: (s.teachers || []).map(t => ({...t, away_days: t.away_days.slice()})),
-  classes: (s.classes || []).map(c => ({...c})) });
+  teachers: (s.teachers || []).map(t => ({...t, away_days: t.away_days.slice(), unavailable: (t.unavailable || []).map(x => x.slice())})),
+  classes: (s.classes || []).map(c => ({...c})),
+  rooms: (s.rooms || []).map(r => ({...r, unavailable: (r.unavailable || []).map(x => x.slice())})),
+  doubles: (s.doubles || []).map(x => x.slice()) });
 const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
 const natural = (a, b) => String(a).localeCompare(String(b), undefined, {numeric: true});
 const slotKey = (d, p) => `${d},${p}`;
@@ -292,9 +321,18 @@ const slotConflicts = slot => (DUTY_SLOTS_CFG.find(x => x.name === slot) || {}).
 // Teacher settings live in state.teachers; a teacher with no row gets defaults.
 function teacherOf(code) {
   let t = state.teachers.find(x => x.code === code);
-  if (!t) { t = {code, name: "", email: "", max_duties: null, no_duties: false, away_days: []}; state.teachers.push(t); }
+  if (!t) { t = {code, name: "", email: "", max_duties: null, no_duties: false, away_days: [], max_periods: null, min_off_per_day: null, max_consecutive: null, unavailable: []}; state.teachers.push(t); }
   return t;
 }
+function roomOf(code) {
+  let r = state.rooms.find(x => x.code === code);
+  if (!r) { r = {code, name: "", seats: null, unavailable: []}; state.rooms.push(r); }
+  return r;
+}
+// Slots are [day, period] pairs; helpers to test and toggle membership.
+const hasSlot = (list, d, p) => list.some(x => x[0] === d && x[1] === p);
+const slotText = list => list.map(x => `${x[0]}:${x[1]}`).join(";");
+const parseSlots = text => (text || "").split(";").filter(Boolean).map(x => x.split(":").map(Number));
 const teacherLabel = code => { const t = state.teachers.find(x => x.code === code); return t && t.name ? `${t.name} (${code})` : code; };
 const isAway = (d, t) => teacherOf(t).away_days.includes(d);
 const dutyCount = (s, t) => s.duties.filter(x => x.teacher === t).length;
@@ -383,6 +421,9 @@ function restore() {
       if (!state.duties) { state.duties = clone(ORIGINAL).duties; state.dutyDefs = []; }   // saved before duties were editable
       if (!state.teachers) state.teachers = clone(ORIGINAL).teachers;
       if (!state.classes) state.classes = clone(ORIGINAL).classes;
+      if (!state.rooms) state.rooms = clone(ORIGINAL).rooms;
+      if (!state.doubles) state.doubles = clone(ORIGINAL).doubles;
+      for (const t of state.teachers) t.unavailable = t.unavailable || [];
       return true;
     }
   } catch (e) {}
@@ -491,6 +532,40 @@ function check(s) {
   for (const c of s.classes) {
     if (!c.teacher) issues.push({severity: "warning", kind: "no-teacher", message: `${c.class_code} in group ${groupLetter(c.group)} (Year ${c.year}) has no teacher`});
   }
+  // Lessons in periods a teacher, room or group is marked unavailable for; classes too big for their room; teacher limits.
+  for (const t of s.teachers) for (const [d, p] of t.unavailable || []) {
+    const l = s.lessons.find(l => l.day === d && l.period === p && l.teacher === t.code);
+    if (l) issues.push({severity: "error", kind: "teacher-unavailable", day: d, period: p, message: `${t.code} teaches ${className(l.class_code, d)} but is marked unavailable`});
+  }
+  for (const r of s.rooms || []) for (const [d, p] of r.unavailable) {
+    const l = s.lessons.find(l => l.day === d && l.period === p && l.room === r.code);
+    if (l) issues.push({severity: "error", kind: "room-unavailable", day: d, period: p, message: `${r.code} has ${className(l.class_code, d)} but is marked unavailable`});
+  }
+  const seenGroup = new Set();
+  for (const c of s.classes) {
+    const k = c.year + "|" + c.group; if (seenGroup.has(k) || !c.unavailable) continue; seenGroup.add(k);
+    const codes = new Set(s.classes.filter(x => x.year === c.year && x.group === c.group).map(x => x.class_code));
+    for (const [d, p] of parseSlots(c.unavailable)) {
+      const l = s.lessons.find(l => l.day === d && l.period === p && codes.has(l.class_code));
+      if (l) issues.push({severity: "error", kind: "group-unavailable", day: d, period: p, message: `${className(l.class_code, d)} is timetabled but group ${groupLetter(c.group)} (Year ${c.year}) is marked unavailable`});
+    }
+  }
+  for (const c of s.classes) {
+    const r = (s.rooms || []).find(r => r.code === c.room);
+    if (r && r.seats != null && Number(c.students) > r.seats) issues.push({severity: "warning", kind: "room-too-small", message: `${c.class_code} has ${c.students} students but ${c.room} seats ${r.seats}`});
+  }
+  for (const t of s.teachers) {
+    const n = new Set(s.lessons.filter(l => l.teacher === t.code).map(l => slotKey(l.day, l.period))).size;
+    if (t.max_periods != null && n > t.max_periods) issues.push({severity: "warning", kind: "teacher-load", message: `${t.code} teaches ${n} periods, max ${t.max_periods}`});
+    if (t.min_off_per_day != null || t.max_consecutive != null) for (const d of days) {
+      const ps = periods.filter(p => s.lessons.some(l => l.day === d && l.period === p && l.teacher === t.code));
+      if (!ps.length) continue;
+      if (t.min_off_per_day != null && periods.length - ps.length < t.min_off_per_day)
+        issues.push({severity: "warning", kind: "teacher-off", day: d, message: `${t.code} has ${periods.length - ps.length} periods off, min ${t.min_off_per_day}`});
+      if (t.max_consecutive != null) { let run = 1, worst = 1; for (let i = 1; i < ps.length; i++) { run = ps[i] === ps[i - 1] + 1 ? run + 1 : 1; worst = Math.max(worst, run); }
+        if (worst > t.max_consecutive) issues.push({severity: "warning", kind: "teacher-consecutive", day: d, message: `${t.code} teaches ${worst} periods in a row, max ${t.max_consecutive}`}); }
+    }
+  }
   // Over-cap is reported once per teacher, not once per duty.
   for (const ts of s.teachers) {
     const n = dutyCount(s, ts.code);
@@ -561,6 +636,8 @@ const VIEWS = {
   Classes: { opts: () => [...new Set(state.classes.map(c => c.year))].sort(yearSort), label: y => `Year ${y}` },
   Duties:  {},
   Teachers: {},
+  Rooms:   {},
+  Settings: {},
   Issues:  {},
   Changes: {},
   Print:   {},
@@ -595,11 +672,15 @@ function renderGrid() {
   $("print").classList.toggle("hidden", view !== "Print");
   $("duties").classList.toggle("hidden", view !== "Duties");
   $("teacher-settings").classList.toggle("hidden", view !== "Teachers");
+  $("room-settings").classList.toggle("hidden", view !== "Rooms");
+  $("settings").classList.toggle("hidden", view !== "Settings");
   $("info").textContent = "";
   if (view === "Print") { renderPrint(); return; }
   if (view === "Duties") { renderDuties(); return; }
   if (view === "Teachers") { renderTeachers(); return; }
   if (view === "Classes") { renderClasses(); return; }
+  if (view === "Rooms") { renderRooms(); return; }
+  if (view === "Settings") { renderSettings(); return; }
   if (view === "Issues") {
     $("issues").innerHTML = issues.length ? `<ul class="issues">${issues.map(i =>
       `<li class="${i.severity}">${i.day ? `${esc(i.period ? dayPeriodLabel(i.day, i.period) : dayLabel(i.day))}: ` : ""}${esc(i.message)}</li>`).join("")}</ul>` : "<p>No issues found.</p>";
@@ -713,6 +794,105 @@ $("dl-duties").addEventListener("click", () => {
     ...rows.map(x => [x.day, (blockOf(x.day) || {n: ""}).n, weekdayOf(x.day), q(x.slot), q(x.duty), x.teacher])], "\n");
 });
 
+// ---------- availability grid: mark periods an entity can't use ----------
+let availShown = {};   // {kind: "teacher"|"room"|"group", key}
+function renderAvail(container, title, unavailable, busyAt, kind, key) {
+  const el = $(container);
+  if (!key) { el.innerHTML = ""; return; }
+  const weekCls = d => { const b = blockOf(d); return b && b.days[0] === d && b.n > 1 ? "week" : ""; };
+  let html = `<h2>${esc(title)} <button type="button" class="x" data-close="1">Close</button></h2><p class="note">Click a cell to mark it unavailable (red). Grey cells already have a lesson; a red grey cell with ! is a clash with the current timetable.</p><table><thead>`;
+  if (BLOCKS.length) html += `<tr><th></th>${BLOCKS.map(b => `<th class="block week" colspan="${b.days.filter(d => days.includes(d)).length}">${esc(b.short || b.name)}</th>`).join("")}</tr>`;
+  html += `<tr><th></th>${days.map(d => `<th class="${weekCls(d)}">${esc(weekdayOf(d).slice(0, 2))}</th>`).join("")}</tr></thead><tbody>`;
+  for (const p of periods) {
+    html += `<tr><th>${esc(periodLabel(p))}</th>` + days.map(d => {
+      const off = hasSlot(unavailable, d, p), busy = busyAt(d, p);
+      return `<td class="${weekCls(d)} ${off ? "off" : ""} ${busy ? "busy" : ""}" data-d="${d}" data-p="${p}" data-kind="${kind}" data-key="${esc(key)}" title="${esc(busy || "")}">${off ? "U" : (busy ? "·" : "")}</td>`;
+    }).join("") + "</tr>";
+  }
+  el.innerHTML = html + "</tbody></table>";
+}
+function toggleUnavailable(kind, key, d, p) {
+  const label = `${dayLabel(d)} ${periodLabel(p)}`;
+  apply(`${kind === "group" ? "Group " + groupLetter(key.split("|")[1]) + " (Year " + key.split("|")[0] + ")" : kind === "room" ? "Room " + key : key} ${"\u2192"} toggled unavailable ${label}`, s => {
+    let list;
+    if (kind === "teacher") { const t = s.teachers.find(x => x.code === key) || (s.teachers.push({...teacherOf(key)}), s.teachers[s.teachers.length - 1]); t.unavailable = t.unavailable || []; list = t.unavailable; }
+    else if (kind === "room") { const r = s.rooms.find(x => x.code === key) || (s.rooms.push({code: key, name: "", seats: null, unavailable: []}), s.rooms[s.rooms.length - 1]); list = r.unavailable; }
+    else { const [year, group] = key.split("|"); const rows = s.classes.filter(c => c.year === year && c.group === group);
+      const cur = parseSlots(rows[0].unavailable); const next = hasSlot(cur, d, p) ? cur.filter(x => !(x[0] === d && x[1] === p)) : [...cur, [d, p]];
+      for (const c of rows) c.unavailable = slotText(next); return; }
+    const i = list.findIndex(x => x[0] === d && x[1] === p);
+    if (i >= 0) list.splice(i, 1); else list.push([d, p]);
+  });
+}
+for (const id of ["teacher-avail", "room-avail", "group-avail"]) $(id).addEventListener("click", e => {
+  if (e.target.closest("[data-close]")) { availShown = {}; renderAll(); return; }
+  const td = e.target.closest("td[data-kind]"); if (!td) return;
+  toggleUnavailable(td.dataset.kind, td.dataset.key, Number(td.dataset.d), Number(td.dataset.p));
+});
+const teacherBusy = t => (d, p) => { const l = state.lessons.find(l => l.day === d && l.period === p && l.teacher === t); return l ? `${className(l.class_code, d)} in ${l.room}` : ""; };
+const roomBusy = r => (d, p) => { const l = state.lessons.find(l => l.day === d && l.period === p && l.room === r); return l ? `${className(l.class_code, d)} with ${l.teacher}` : ""; };
+const groupBusy = (year, group) => (d, p) => { const codes = new Set(state.classes.filter(c => c.year === year && c.group === group).map(c => c.class_code));
+  const l = state.lessons.find(l => l.day === d && l.period === p && codes.has(l.class_code)); return l ? className(l.class_code, d) : ""; };
+
+// ---------- rooms ----------
+function renderRooms() {
+  const codes = [...new Set([...state.rooms.map(r => r.code), ...state.lessons.map(l => l.room)])].filter(Boolean).sort(natural);
+  const used = code => new Set(state.lessons.filter(l => l.room === code).map(l => slotKey(l.day, l.period))).size;
+  // Biggest class planned into the room, for the seats warning.
+  const biggest = code => Math.max(0, ...state.classes.filter(c => c.room === code).map(c => Number(c.students) || 0));
+  $("room-grid").innerHTML = `<thead><tr><th>Code</th><th>Name</th><th>Seats</th><th>Biggest class</th><th>Periods used</th><th>Unavailable</th><th></th></tr></thead><tbody>` +
+    codes.map(code => { const r = roomOf(code); const big = biggest(code);
+      return `<tr data-r="${esc(code)}"><td><b>${esc(code)}</b></td><td><input type="text" class="nm" data-f="name" value="${esc(r.name)}" aria-label="Name of room ${esc(code)}"></td>` +
+        `<td><input type="number" min="0" data-f="seats" value="${r.seats ?? ""}" aria-label="Seats in ${esc(code)}" ${r.seats != null && big > r.seats ? 'style="border-color:var(--bad-fg)"' : ""}></td>` +
+        `<td class="n ${r.seats != null && big > r.seats ? "over" : ""}">${big || ""}</td><td class="n">${used(code)} / ${cyclePeriods()}</td><td class="n">${r.unavailable.length || ""}</td>` +
+        `<td><button type="button" data-avail="${esc(code)}">Periods</button> <button type="button" class="x" data-del="${esc(code)}" title="Delete room" ${used(code) ? "disabled" : ""}>✕</button></td></tr>`; }).join("") + "</tbody>";
+  $("info").textContent = `${codes.length} rooms`;
+  const key = availShown.kind === "room" ? availShown.key : null;
+  renderAvail("room-avail", `Unavailable periods for room ${key}`, key ? roomOf(key).unavailable : [], roomBusy(key), "room", key);
+}
+$("room-grid").addEventListener("change", e => {
+  const inp = e.target.closest("input"); if (!inp) return;
+  const code = inp.closest("tr").dataset.r, f = inp.dataset.f, value = f === "seats" ? (inp.value === "" ? null : Number(inp.value)) : inp.value.trim();
+  apply(`Set room ${code} ${f} = ${value ?? "none"}`, s => { const r = s.rooms.find(x => x.code === code) || (s.rooms.push({code, name: "", seats: null, unavailable: []}), s.rooms[s.rooms.length - 1]); r[f] = value; });
+});
+$("room-grid").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.avail) { availShown = {kind: "room", key: b.dataset.avail}; renderRooms(); }
+  else if (b.dataset.del) apply(`Deleted room ${b.dataset.del}`, s => { s.rooms = s.rooms.filter(r => r.code !== b.dataset.del); });
+});
+$("room-add").addEventListener("click", () => {
+  const code = (prompt("Room code (as used in TTable.txt), e.g. Lib:") || "").trim(); if (!code) return;
+  if (state.rooms.some(r => r.code === code)) return alert(`${code} already exists.`);
+  apply(`Added room ${code}`, s => { s.rooms.push({code, name: "", seats: null, unavailable: []}); });
+});
+$("dl-rooms").addEventListener("click", () => {
+  const q = v => /[",\n]/.test(v) ? `"${String(v).replace(/"/g, '""')}"` : v;
+  const codes = [...new Set([...state.rooms.map(r => r.code), ...state.lessons.map(l => l.room)])].filter(Boolean).sort(natural);
+  download("rooms.csv", [["code", "name", "seats", "unavailable"], ...codes.map(c => { const r = roomOf(c); return [c, q(r.name), r.seats ?? "", slotText(r.unavailable)]; })], "\n");
+});
+
+// ---------- settings: doubles ----------
+function renderSettings() {
+  const pairs = [];
+  for (let i = 0; i + 1 < periods.length; i++) pairs.push([periods[i], periods[i + 1]]);
+  $("doubles").innerHTML = pairs.map(([a, b]) => `<label><input type="checkbox" data-a="${a}" data-b="${b}" ${hasSlot(state.doubles, a, b) ? "checked" : ""}> ${esc(periodLabel(a))} + ${esc(periodLabel(b))}</label>`).join("");
+  $("info").textContent = `${state.doubles.length} double period pairs`;
+}
+$("doubles").addEventListener("change", e => {
+  const inp = e.target.closest("input"); if (!inp) return;
+  const a = Number(inp.dataset.a), b = Number(inp.dataset.b);
+  apply(`${inp.checked ? "Made" : "Unmade"} ${periodLabel(a)} + ${periodLabel(b)} a double`, s => {
+    s.doubles = s.doubles.filter(x => !(x[0] === a && x[1] === b)); if (inp.checked) s.doubles.push([a, b]); s.doubles.sort((x, y) => x[0] - y[0]);
+  });
+});
+$("dl-school").addEventListener("click", () => {
+  const cfg = {...CFG}; delete cfg.names; delete cfg.planned; delete cfg.classes; delete cfg.duties; delete cfg.teachers; delete cfg.rooms;
+  cfg.doubles = state.doubles;
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(cfg, null, 2) + "\n"], {type: "application/json"})); a.download = "school.json";
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+
 // ---------- class information (Timetabler [7A]) ----------
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const groupLetter = g => g.replace(/^\d+/, "");
@@ -745,7 +925,8 @@ function renderClasses() {
   let html = `<thead><tr><th></th>${groups.map((g, i) => `<th class="g">${esc(groupLetter(g.group))}` +
     `<small><button type="button" data-mv="${esc(g.group)}" data-dir="-1" title="Move left" ${i === 0 ? "disabled" : ""}>◀</button> ` +
     `<button type="button" data-del="${esc(g.group)}" title="Delete group">✕</button> ` +
-    `<button type="button" data-mv="${esc(g.group)}" data-dir="1" title="Move right" ${i === groups.length - 1 ? "disabled" : ""}>▶</button></small></th>`).join("")}</tr></thead><tbody>`;
+    `<button type="button" data-mv="${esc(g.group)}" data-dir="1" title="Move right" ${i === groups.length - 1 ? "disabled" : ""}>▶</button> ` +
+    `<button type="button" data-avail-g="${esc(g.group)}" title="Periods this group can't use">${parseSlots(g.rows[0].unavailable).length ? "Unavail (" + parseSlots(g.rows[0].unavailable).length + ")" : "Unavail"}</button></small></th>`).join("")}</tr></thead><tbody>`;
   const field = (label, f, cls = "num", type = "number") => `<tr><td class="rowhead">${label}</td>` + groups.map(g =>
     `<td><input type="${type}" min="0" class="${cls}" data-g="${esc(g.group)}" data-f="${f}" value="${esc(g.rows[0][f])}" aria-label="${label} for group ${esc(groupLetter(g.group))}"></td>`).join("") + "</tr>";
   html += field("Periods", "periods") + field("Doubles", "doubles") + field("Cross-year", "mrcg", "num", "text");
@@ -758,6 +939,8 @@ function renderClasses() {
     `<select data-add-g="${esc(g.group)}" aria-label="Add class to group ${esc(groupLetter(g.group))}"><option value="">Add class…</option>${allClasses().filter(code => !g.rows.some(r => r.class_code === code)).map(code => `<option value="${esc(code)}">${esc(className(code))} [${esc(code)}]</option>`).join("")}</select></td>`).join("") + "</tr>";
   $("class-grid").innerHTML = html + "</tbody>";
   $("info").textContent = "";
+  const gk = availShown.kind === "group" && availShown.key.split("|")[0] === year ? availShown.key : null;
+  renderAvail("group-avail", gk ? `Periods group ${groupLetter(gk.split("|")[1])} (Year ${year}) can't use` : "", gk ? parseSlots(groupRows(state, year, gk.split("|")[1])[0].unavailable) : [], gk ? groupBusy(year, gk.split("|")[1]) : () => "", "group", gk);
   // Planned (from these groups) vs actual (timetabled) periods per teacher, all years.
   const load = teachers.map(t => ({t, planned: plannedLoad(state, t), actual: teacherLoad(t)})).filter(x => x.planned || x.actual)
     .sort((a, b) => b.planned - a.planned || natural(a.t, b.t));
@@ -773,7 +956,7 @@ $("class-grid").addEventListener("change", e => {
     apply(`Added ${code} to group ${groupLetter(group)} (Year ${year})`, s => {
       const first = groupRows(s, year, group)[0];
       const tmpl = s.classes.find(c => c.class_code === code) || {};   // same class elsewhere: copy its teacher/room
-      s.classes.push({year, group, periods: first.periods, doubles: first.doubles, mrcg: first.mrcg, class_code: code,
+      s.classes.push({year, group, periods: first.periods, doubles: first.doubles, mrcg: first.mrcg, unavailable: first.unavailable || "", class_code: code,
         class_name: className(code), students: tmpl.students || "", teacher: tmpl.teacher || "", room: tmpl.room || "", seats: tmpl.seats || "", class_type: tmpl.class_type || ""});
     });
     return;
@@ -792,6 +975,7 @@ $("class-grid").addEventListener("change", e => {
 $("class-grid").addEventListener("click", e => {
   const b = e.target.closest("button"); if (!b) return;
   const year = $("pick").value;
+  if (b.dataset.availG) { availShown = {kind: "group", key: `${year}|${b.dataset.availG}`}; renderClasses(); return; }
   if (b.dataset.rmG) {
     const group = b.dataset.rmG, code = b.dataset.rmC;
     apply(`Removed ${code} from group ${groupLetter(group)} (Year ${year})`, s => {
@@ -824,12 +1008,12 @@ $("group-add").addEventListener("click", () => {
   apply(`Added group with ${code.trim()} (Year ${year})`, s => {
     const n = groupsOf(s, year).length;
     const tmpl = s.classes.find(c => c.class_code === code.trim()) || {};
-    s.classes.push({year, group: year + LETTERS[n], periods: "3", doubles: "0", mrcg: "", class_code: code.trim(), class_name: className(code.trim()),
+    s.classes.push({year, group: year + LETTERS[n], periods: "3", doubles: "0", mrcg: "", unavailable: "", class_code: code.trim(), class_name: className(code.trim()),
       students: tmpl.students || "", teacher: tmpl.teacher || "", room: tmpl.room || "", seats: tmpl.seats || "", class_type: tmpl.class_type || ""});
   });
 });
 $("dl-curriculum").addEventListener("click", () => {
-  const cols = ["year", "group", "periods", "doubles", "mrcg", "class_code", "class_name", "students", "teacher", "room", "seats", "class_type"];
+  const cols = ["year", "group", "periods", "doubles", "mrcg", "unavailable", "class_code", "class_name", "students", "teacher", "room", "seats", "class_type"];
   const q = v => /[",\n]/.test(v) ? `"${String(v).replace(/"/g, '""')}"` : v;
   const rows = state.classes.slice().sort((a, b) => yearSort(a.year, b.year) || natural(groupLetter(a.group), groupLetter(b.group)));
   download("curriculum.csv", [cols, ...rows.map(c => cols.map(k => q(c[k] ?? "")))], "\n");
@@ -840,8 +1024,8 @@ function renderTeachers() {
   const teachers = allTeachers();
   const weekCls = d => { const b = blockOf(d); return b && b.days[0] === d && b.n > 1 ? "week" : ""; };
   let html = "<thead>";
-  if (BLOCKS.length) html += `<tr><th colspan="5"></th>${BLOCKS.map(b => `<th class="block week" colspan="${b.days.filter(d => days.includes(d)).length}">${esc(b.short || b.name)} <small>away</small></th>`).join("")}</tr>`;
-  html += `<tr><th>Code</th><th>Name</th><th>Email</th><th>Max</th><th>No duties</th>${days.map(d => `<th class="${weekCls(d)}">${esc(weekdayOf(d).slice(0, 2))}</th>`).join("")}</tr></thead><tbody>`;
+  if (BLOCKS.length) html += `<tr><th colspan="9"></th>${BLOCKS.map(b => `<th class="block week" colspan="${b.days.filter(d => days.includes(d)).length}">${esc(b.short || b.name)} <small>away</small></th>`).join("")}</tr>`;
+  html += `<tr><th>Code</th><th>Name</th><th>Email</th><th>Max duties</th><th>No duties</th><th>Max periods</th><th>Min off/day</th><th>Max consec.</th><th>Periods</th>${days.map(d => `<th class="${weekCls(d)}">${esc(weekdayOf(d).slice(0, 2))}</th>`).join("")}</tr></thead><tbody>`;
   for (const code of teachers) {
     const t = teacherOf(code);
     html += `<tr class="${t.no_duties ? "off" : ""}" data-t="${esc(code)}"><td><b>${esc(code)}</b> <small>${dutyCount(state, code)} duties</small></td>` +
@@ -849,11 +1033,21 @@ function renderTeachers() {
       `<td><input type="email" class="em" data-f="email" value="${esc(t.email)}" aria-label="Email of ${esc(code)}"></td>` +
       `<td><input type="number" min="0" data-f="max_duties" value="${t.max_duties ?? ""}" aria-label="Max duties for ${esc(code)}"></td>` +
       `<td class="away"><input type="checkbox" data-f="no_duties" ${t.no_duties ? "checked" : ""} aria-label="${esc(code)} does no duties"></td>` +
+      `<td><input type="number" min="0" data-f="max_periods" value="${t.max_periods ?? ""}" aria-label="Max periods for ${esc(code)}" ${t.max_periods != null && teacherLoad(code) > t.max_periods ? 'style="border-color:var(--bad-fg)"' : ""}> <small>${teacherLoad(code)}</small></td>` +
+      `<td><input type="number" min="0" data-f="min_off_per_day" value="${t.min_off_per_day ?? ""}" aria-label="Min periods off per day for ${esc(code)}"></td>` +
+      `<td><input type="number" min="0" data-f="max_consecutive" value="${t.max_consecutive ?? ""}" aria-label="Max consecutive periods for ${esc(code)}"></td>` +
+      `<td><button type="button" data-avail="${esc(code)}">${(t.unavailable || []).length ? `Periods (${t.unavailable.length})` : "Periods"}</button></td>` +
       days.map(d => `<td class="away ${weekCls(d)}"><input type="checkbox" data-f="away" data-d="${d}" ${t.away_days.includes(d) ? "checked" : ""} aria-label="${esc(code)} away ${esc(dayLabel(d))}"></td>`).join("") + "</tr>";
   }
   $("teacher-grid").innerHTML = html + "</tbody>";
   $("info").textContent = `${teachers.length} teachers`;
+  const key = availShown.kind === "teacher" ? availShown.key : null;
+  renderAvail("teacher-avail", `Periods ${key} can't teach`, key ? teacherOf(key).unavailable || [] : [], teacherBusy(key), "teacher", key);
 }
+$("teacher-grid").addEventListener("click", e => {
+  const b = e.target.closest("button[data-avail]"); if (!b) return;
+  availShown = {kind: "teacher", key: b.dataset.avail}; renderTeachers();
+});
 $("teacher-grid").addEventListener("change", e => {
   const inp = e.target.closest("input"); if (!inp) return;
   const code = inp.closest("tr").dataset.t, f = inp.dataset.f;
@@ -864,7 +1058,7 @@ $("teacher-grid").addEventListener("change", e => {
       t.away_days = inp.checked ? [...new Set([...t.away_days, d])].sort((a, b) => a - b) : t.away_days.filter(x => x !== d);
     });
   } else {
-    const value = f === "no_duties" ? inp.checked : f === "max_duties" ? (inp.value === "" ? null : Number(inp.value)) : inp.value.trim();
+    const value = f === "no_duties" ? inp.checked : ["max_duties", "max_periods", "min_off_per_day", "max_consecutive"].includes(f) ? (inp.value === "" ? null : Number(inp.value)) : inp.value.trim();
     const shown = f === "no_duties" ? (value ? "no duties" : "does duties") : `${f.replace("_", " ")} = ${value ?? "none"}`;
     apply(`Set ${code} ${shown}`, s => {
       const t = s.teachers.find(x => x.code === code) || (s.teachers.push({code, name: "", email: "", max_duties: null, no_duties: false, away_days: []}), s.teachers[s.teachers.length - 1]);
@@ -874,8 +1068,9 @@ $("teacher-grid").addEventListener("change", e => {
 });
 $("dl-teachers").addEventListener("click", () => {
   const q = v => /[",\n]/.test(v) ? `"${String(v).replace(/"/g, '""')}"` : v;
-  download("teachers.csv", [["code", "name", "email", "max_duties", "no_duties", "away_days"],
-    ...allTeachers().map(c => { const t = teacherOf(c); return [c, q(t.name), q(t.email), t.max_duties ?? "", t.no_duties ? "yes" : "", t.away_days.join(";")]; })], "\n");
+  download("teachers.csv", [["code", "name", "email", "max_duties", "no_duties", "away_days", "max_periods", "min_off_per_day", "max_consecutive", "unavailable"],
+    ...allTeachers().map(c => { const t = teacherOf(c); return [c, q(t.name), q(t.email), t.max_duties ?? "", t.no_duties ? "yes" : "", t.away_days.join(";"),
+      t.max_periods ?? "", t.min_off_per_day ?? "", t.max_consecutive ?? "", slotText(t.unavailable || [])]; })], "\n");
 });
 
 // ---------- print view: master timetable (all years) or one year, per block ----------

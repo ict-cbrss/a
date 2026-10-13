@@ -38,8 +38,10 @@ class ViewerTests(unittest.TestCase):
                    {"year": "7", "group": "7B", "periods": "1", "doubles": "0", "mrcg": "1", "class_code": "C07MA_1", "class_name": "C7 Maths", "students": "1", "teacher": "BB", "room": "G7", "seats": "30", "class_type": ""},
                    {"year": "7", "group": "7B", "periods": "1", "doubles": "0", "mrcg": "1", "class_code": "C07Sc_1", "class_name": "C7 Science", "students": "1", "teacher": "DD", "room": "SLab", "seats": "36", "class_type": ""},
                    {"year": "8", "group": "8A", "periods": "2", "doubles": "0", "mrcg": "", "class_code": "C08E_1", "class_name": "C8 English", "students": "1", "teacher": "AA", "room": "G7", "seats": "30", "class_type": ""}],
-               "teachers": [{"code": "DD", "name": "Dee D", "email": "dd@school", "max_duties": None, "no_duties": False, "away_days": [2]},
-                            {"code": "CC", "name": "", "email": "", "max_duties": 1, "no_duties": False, "away_days": []}],
+               "teachers": [{"code": "DD", "name": "Dee D", "email": "dd@school", "max_duties": None, "no_duties": False, "away_days": [2], "max_periods": None, "min_off_per_day": None, "max_consecutive": None, "unavailable": []},
+                            {"code": "CC", "name": "", "email": "", "max_duties": 1, "no_duties": False, "away_days": [], "max_periods": None, "min_off_per_day": None, "max_consecutive": None, "unavailable": []}],
+               "rooms": [{"code": "G7", "name": "", "seats": 30, "unavailable": []}, {"code": "SLab", "name": "Science lab", "seats": 36, "unavailable": []}],
+               "doubles": [[2, 3]],
                "duties": [[1, "Recess", "Recess top", "AA"], [1, "Lunch 1", "Lunch 1 Walk", "BB"], [2, "Recess", "Recess top", "AA"]]}
         cls.html.write_text(report.build(cls.lessons, cls.enrolments,
                                          validate.check(cls.lessons, cls.enrolments), cfg), encoding="utf-8")
@@ -225,9 +227,9 @@ class ViewerTests(unittest.TestCase):
         self.assertIn("Lunch 1 Walk", sheet.inner_text())
         self.page.click("#views button[data-v=Teachers]")
         csv_text = self.download("#dl-teachers").read_text()
-        self.assertIn("AA,,,,yes,\n", csv_text)
-        self.assertIn("BB,Bea B,,,,\n", csv_text)
-        self.assertIn("DD,Dee D,dd@school,,,2\n", csv_text)
+        self.assertIn("AA,,,,yes,,,,,\n", csv_text)
+        self.assertIn("BB,Bea B,,,,,,,,\n", csv_text)
+        self.assertIn("DD,Dee D,dd@school,,,2,,,,\n", csv_text)
 
     def test_class_information_editor(self):
         self.page.click("#views button[data-v=Classes]")
@@ -256,13 +258,52 @@ class ViewerTests(unittest.TestCase):
         self.assertEqual([th.inner_text().split("\n")[0] for th in self.page.locator("#class-grid thead th.g").all()], ["A", "B", "C"])
         csv_text = self.download("#dl-curriculum").read_text()
         rows = [l.split(",") for l in csv_text.strip().split("\n")]
-        self.assertEqual(rows[0][:6], ["year", "group", "periods", "doubles", "mrcg", "class_code"])
-        by = {(r[1], r[5]): r for r in rows[1:]}
-        self.assertEqual(by[("7A", "C07Sc_1")][8], "CC")          # moved to A, teacher changed
+        self.assertEqual(rows[0][:7], ["year", "group", "periods", "doubles", "mrcg", "unavailable", "class_code"])
+        by = {(r[1], r[6]): r for r in rows[1:]}
+        self.assertEqual(by[("7A", "C07Sc_1")][9], "CC")          # moved to A, teacher changed
         self.assertEqual(by[("7B", "C07E_1")][2], "3")            # periods changed
-        self.assertEqual(by[("7C", "C07Geo_1")][5], "C07Geo_1")   # new group
+        self.assertEqual(by[("7C", "C07Geo_1")][6], "C07Geo_1")   # new group
         self.page.click("#views button[data-v=Changes]")
         self.assertIn("Moved group A (Year 7) right", self.page.inner_text("#changes"))
+
+    def test_rooms_teacher_limits_group_unavailable_and_doubles(self):
+        # Rooms: mark SLab unavailable where C07Sc_1 is timetabled (day 1 P3) -> error; seats warning for a big class.
+        self.page.click("#views button[data-v=Rooms]")
+        self.assertEqual(self.page.inner_text("#info"), "3 rooms")   # G7, SLab from config + W from the file
+        self.page.click("button[data-avail='SLab']")
+        self.assertEqual(self.page.locator("#room-avail td[data-d='1'][data-p='3']").get_attribute("title"), "C7 Science with DD")
+        self.page.click("#room-avail td[data-d='1'][data-p='3']")
+        self.page.fill("tr[data-r=G7] input[data-f=seats]", "0"); self.page.press("tr[data-r=G7] input[data-f=seats]", "Tab")
+        self.page.click("#views button[data-v=Issues]")
+        issues = self.page.inner_text("#issues")
+        self.assertIn("SLab has C7 Science but is marked unavailable", issues)
+        self.assertIn("C07E_1 has 1 students but G7 seats 0", issues)
+        # Teacher limits: AA teaches 1 period; cap at 0 and mark a period unavailable.
+        self.page.click("#views button[data-v=Teachers]")
+        self.page.fill("tr[data-t=AA] input[data-f=max_periods]", "0"); self.page.press("tr[data-t=AA] input[data-f=max_periods]", "Tab")
+        self.page.click("button[data-avail='AA']"); self.page.click("#teacher-avail td[data-d='1'][data-p='2']")
+        self.assertEqual(self.page.inner_text("button[data-avail='AA']"), "Periods (1)")
+        self.page.click("#views button[data-v=Issues]")
+        issues = self.page.inner_text("#issues")
+        self.assertIn("AA teaches 1 periods, max 0", issues)
+        self.assertIn("AA teaches C7 English but is marked unavailable", issues)
+        # Group unavailable: Year 7 group A (C07E_1) at day 1 P2.
+        self.page.click("#views button[data-v=Classes]"); self.page.select_option("#pick", "7")
+        self.page.click("button[data-avail-g='7A']"); self.page.click("#group-avail td[data-d='1'][data-p='2']")
+        self.assertEqual(self.page.inner_text("button[data-avail-g='7A']"), "Unavail (1)")
+        self.page.click("#views button[data-v=Issues]")
+        self.assertIn("C7 English is timetabled but group A (Year 7) is marked unavailable", self.page.inner_text("#issues"))
+        # Doubles: one pair ticked from config; untick it, download school.json.
+        self.page.click("#views button[data-v=Settings]")
+        self.assertEqual(self.page.inner_text("#info"), "1 double period pairs")
+        self.page.uncheck("#doubles input[data-a='2'][data-b='3']")
+        self.assertEqual(self.page.inner_text("#info"), "0 double period pairs")
+        self.assertIn('"doubles": []', self.download("#dl-school").read_text())
+        self.page.click("#views button[data-v=Rooms]")
+        rooms_csv = self.download("#dl-rooms").read_text()
+        self.assertIn("G7,,0,\n", rooms_csv); self.assertIn("SLab,Science lab,36,1:3\n", rooms_csv)
+        self.page.click("#views button[data-v=Teachers]")
+        self.assertIn("AA,,,,,,0,,,1:2\n", self.download("#dl-teachers").read_text())
 
 
 @unittest.skipUnless(sync_playwright, "playwright not installed")
