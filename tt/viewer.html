@@ -52,12 +52,12 @@ td.over { background: var(--drop); }
 td.clash .l { background: var(--bad); color: var(--bad-fg); }
 .l.duty { background: var(--head); color: var(--fg); cursor: default; }
 #duties td { padding: 2px; }
-#duties select { min-width: 0; width: 100%; padding: 3px 4px; font-size: 12px; }
+#duty-grid select { min-width: 0; width: 100%; padding: 3px 4px; font-size: 12px; }
 #duties td.empty select { border-color: var(--warn-fg); }
 #duties td.clash select { border-color: var(--bad-fg); background: var(--bad); color: var(--bad-fg); }
 #duties th.slot { text-align: left; }
 #duties button.x { padding: 0 5px; font-size: 11px; line-height: 1.4; margin-left: 4px; }
-.side { display: grid; grid-template-columns: 1fr 240px; gap: 16px; align-items: start; }
+.side { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; align-items: start; }
 .side .wrap { min-width: 0; }
 .loads { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .loads table { font-size: 12px; }
