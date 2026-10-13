@@ -13,8 +13,11 @@ A config directory holds:
   duties.csv      day,block,weekday,slot,duty,teacher - yard duty roster from
                   Timetabler's Yard Duties report. Edited in the editor's
                   Duties tab, which downloads a replacement for this file.
-  unavailable.csv day,teacher - days a teacher is not at school (the "U"
-                  cells of the Yard Duties report). Used by the duty builder.
+  teachers.csv    code,name,email,max_duties,no_duties,away_days - duty
+                  settings per teacher: a cap on duties per cycle, whether
+                  they do duties at all, and the cycle days they are away
+                  (semicolon-separated day numbers). Edited in the editor's
+                  Teachers tab, which downloads a replacement for this file.
 All are optional; without them the editor shows Day N / PN and class codes.
 """
 import csv
@@ -29,7 +32,7 @@ def load(directory):
     cfg["names"] = []
     cfg["planned"] = {}
     cfg["duties"] = []
-    cfg["unavailable"] = []
+    cfg["teachers"] = []
     if not directory:
         return cfg
     directory = Path(directory)
@@ -57,8 +60,15 @@ def load(directory):
     if duties.exists():
         with duties.open(encoding="utf-8", newline="") as f:
             cfg["duties"] = [[int(r["day"]), r["slot"], r["duty"], r["teacher"]] for r in csv.DictReader(f)]
-    unavailable = directory / "unavailable.csv"
-    if unavailable.exists():
-        with unavailable.open(encoding="utf-8", newline="") as f:
-            cfg["unavailable"] = [[int(r["day"]), r["teacher"]] for r in csv.DictReader(f)]
+    teachers = directory / "teachers.csv"
+    if teachers.exists():
+        with teachers.open(encoding="utf-8", newline="") as f:
+            for r in csv.DictReader(f):
+                if r["code"]:
+                    cfg["teachers"].append({
+                        "code": r["code"], "name": r.get("name", ""), "email": r.get("email", ""),
+                        "max_duties": int(r["max_duties"]) if r.get("max_duties") else None,
+                        "no_duties": (r.get("no_duties") or "").strip().lower() in ("y", "yes", "true", "1"),
+                        "away_days": [int(x) for x in (r.get("away_days") or "").split(";") if x.strip()],
+                    })
     return cfg

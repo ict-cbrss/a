@@ -93,9 +93,13 @@ class ConfigTests(unittest.TestCase):
             (Path(d) / "classnames.csv").write_text("code,name,block\nC07E_1,C7 English,\nC07ML_1,C7 Birthing,2\n")
             (Path(d) / "curriculum.csv").write_text("year,group,periods,class_code\n7,7A,6,C07E_1\n7,7B,3,C07E_1\n7,7B,3,C07E_1\n7,7C,9,C07MA_1\n")
             (Path(d) / "duties.csv").write_text("day,block,weekday,slot,duty,teacher\n3,1,Wed,Recess,Recess top,AA\n")
+            (Path(d) / "teachers.csv").write_text("code,name,email,max_duties,no_duties,away_days\nAA,Ann A,aa@x,6,,1;5\nBB,,,,yes,\n")
             cfg = config.load(d)
         self.assertEqual(cfg["planned"], {"C07E_1": 9, "C07MA_1": 9})
         self.assertEqual(cfg["duties"], [[3, "Recess", "Recess top", "AA"]])
+        self.assertEqual(cfg["teachers"], [
+            {"code": "AA", "name": "Ann A", "email": "aa@x", "max_duties": 6, "no_duties": False, "away_days": [1, 5]},
+            {"code": "BB", "name": "", "email": "", "max_duties": None, "no_duties": True, "away_days": []}])
         self.assertEqual(cfg["term"], "T1")
         self.assertEqual(cfg["blocks"][0]["name"], "B1")
         self.assertEqual(cfg["names"], [["C07E_1", "C7 English", None], ["C07ML_1", "C7 Birthing", 2]])

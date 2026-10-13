@@ -33,7 +33,8 @@ class ViewerTests(unittest.TestCase):
                "year_order": ["12", "8", "7"],
                "names": [["C07E_1", "C7 English", None], ["C07MA_1", "C7 Maths ML1", 1], ["C07MA_1", "C7 Maths ML2", 2]],
                "duty_slots": [{"name": "Before School", "conflicts": [2]}, {"name": "Recess", "conflicts": []}, {"name": "Lunch 1", "conflicts": []}],
-               "unavailable": [[2, "DD"]],
+               "teachers": [{"code": "DD", "name": "Dee D", "email": "dd@school", "max_duties": None, "no_duties": False, "away_days": [2]},
+                            {"code": "CC", "name": "", "email": "", "max_duties": 1, "no_duties": False, "away_days": []}],
                "duties": [[1, "Recess", "Recess top", "AA"], [1, "Lunch 1", "Lunch 1 Walk", "BB"], [2, "Recess", "Recess top", "AA"]]}
         cls.html.write_text(report.build(cls.lessons, cls.enrolments,
                                          validate.check(cls.lessons, cls.enrolments), cfg), encoding="utf-8")
@@ -194,3 +195,30 @@ class ViewerTests(unittest.TestCase):
         self.assertEqual(self.page.inner_text("#info"), "2 duties · 4 assigned · 0 empty · 0 problems")   # auto-fill also filled Lunch 1 Walk
         self.page.click("#views button[data-v=Changes]")
         self.assertIn("Removed duty Gate at Before School", self.page.inner_text("#changes"))
+
+    def test_teacher_settings_cap_no_duties_and_duty_sheets(self):
+        self.page.click("#views button[data-v=Teachers]")
+        self.assertEqual(self.page.inner_text("#info"), "5 teachers")
+        self.page.check("tr[data-t=AA] input[data-f=no_duties]")
+        self.page.fill("tr[data-t=BB] input[data-f=name]", "Bea B"); self.page.press("tr[data-t=BB] input[data-f=name]", "Tab")
+        self.page.click("#views button[data-v=Duties]")
+        # AA now does no duties: both existing AA duties are problems; CC is capped at 1.
+        self.assertEqual(self.page.inner_text("#info"), "2 duties · 3 assigned · 1 empty · 2 problems")
+        self.page.select_option("select[data-d='2'][data-duty='Lunch 1 Walk']", "CC")
+        self.page.select_option("select[data-d='1'][data-duty='Recess top']", "CC")
+        self.assertIn("would have 2 duties, max 1", self.page.locator("select[data-d='1'][data-duty='Recess top']").locator("..").get_attribute("title"))
+        self.page.click("#views button[data-v=Issues]")
+        self.assertIn("CC has 2 duties, max 1", self.page.inner_text("#issues"))
+        self.page.click("#views button[data-v=Print]")
+        self.page.select_option("#print-year", "dutysheets")
+        self.assertEqual(self.page.locator(".sheet.a4").count(), 3)   # AA (still rostered day 2), BB, CC
+        self.page.select_option("#print-teacher", "BB")
+        sheet = self.page.locator(".sheet.a4")
+        self.assertEqual(sheet.count(), 1)
+        self.assertEqual(sheet.locator("h2").inner_text(), "Yard Duties — Bea B")
+        self.assertIn("Lunch 1 Walk", sheet.inner_text())
+        self.page.click("#views button[data-v=Teachers]")
+        csv_text = self.download("#dl-teachers").read_text()
+        self.assertIn("AA,,,,yes,\n", csv_text)
+        self.assertIn("BB,Bea B,,,,\n", csv_text)
+        self.assertIn("DD,Dee D,dd@school,,,2\n", csv_text)
