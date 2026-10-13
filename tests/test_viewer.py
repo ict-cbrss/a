@@ -77,7 +77,7 @@ class ViewerTests(unittest.TestCase):
         return path
 
     def issues_button(self):
-        return self.page.inner_text("#views button[data-v=Issues]")
+        return self.page.inner_text("#chip-issues")   # e.g. "4 errors"
 
     def test_unedited_downloads_are_byte_identical(self):
         for button, name in [("#dl-ttable", "TTable.txt"), ("#dl-scourse", "SCourse.txt")]:
@@ -132,6 +132,20 @@ class ViewerTests(unittest.TestCase):
         self.assertIn("4 errors", self.issues_button())
         self.assertEqual(self.download("#dl-scourse").read_bytes(), (FIX / "SCourse.txt").read_bytes())
 
+    def test_home_page_counts_and_links(self):
+        self.assertEqual(self.page.inner_text("#chip-issues"), "4 errors")
+        self.assertIn("4\nerrors to fix before importing", self.page.inner_text("#home"))
+        self.page.click("#home button[data-go=Issues]")
+        self.assertEqual(self.page.get_attribute("#views button[data-v=Issues]", "aria-pressed"), "true")
+        self.page.click("#views button[data-v=Home]")
+        self.page.click("#home a[data-go=Classes]")
+        self.assertEqual(self.page.inner_text("#app-title"), "Class plan")
+        # The save menu triggers the per-tab download buttons.
+        self.page.click("#save-menu summary")
+        with self.page.expect_download() as d:
+            self.page.click("#save-menu button[data-save=dl-rooms]")
+        self.assertEqual(d.value.suggested_filename, "rooms.csv")
+
     def test_edits_survive_reload_and_reset_clears_them(self):
         self.page.click("#views button[data-v=Student]")
         self.page.select_option("#pick", "900002")
@@ -168,6 +182,7 @@ class ViewerTests(unittest.TestCase):
         self.assertIn("C12D&T_1", self.page.content())   # unnamed codes fall back to the code
 
     def test_yard_duties_in_teacher_view_and_roster_print(self):
+        self.page.click("#views button[data-v=Teacher]")
         self.page.select_option("#pick", "AA")
         self.assertIn("2 yard duties", self.page.inner_text("#info"))
         self.assertEqual(self.page.locator("#grid .l.duty").all_inner_texts(), ["Recess top", "Recess top"])

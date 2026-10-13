@@ -138,33 +138,33 @@ that, or, later, the staff portal can hold it.
 - **curriculum.csv**: the class information plan (Timetabler [7A]): per
   year and group (line), the group's periods per cycle, doubles and
   cross-year group number (`mrcg`), and each class's code, name, student
-  count, teacher, room and seats. Edited in the **Classes** tab; replace
+  count, teacher, room and seats. Edited in the **Class plan** tab; replace
   this file with the tab's download to keep changes. `check` uses it to
   warn when a class is timetabled for a different number of periods than
   planned, and it is the input the solver will build from.
 - **duties.csv**: the yard duty roster (`day,block,weekday,slot,duty,
   teacher`), first taken from Timetabler's Yard Duties report. Edited in the
-  **Duties** tab; replace this file with the tab's download to keep changes.
+  **Duty roster** tab; replace this file with the tab's download to keep changes.
   Duties are stand-alone: they are not part of the TASS export.
 - **teachers.csv**: duty settings per teacher
   (`code,name,email,max_duties,no_duties,away_days`): a cap on duties per
   cycle, whether they do duties at all, and the cycle days they are away
   (semicolon-separated day numbers; first taken from the "U" cells of the
   Yard Duties report). Name and email are for the duty sheets and for
-  emailing them. Edited in the **Teachers** tab; replace this file with the
+  emailing them. Edited in the **Teacher settings** tab; replace this file with the
   tab's download to keep changes.
 - **rooms.csv**: `code,name,seats,unavailable`. Seats give a warning when
   a class is bigger than its room; `unavailable` lists periods the room
-  can't be used (`day:period;day:period`). Edited in the **Rooms** tab.
+  can't be used (`day:period;day:period`). Edited in the **Room settings** tab.
 - `duty_slots` in **school.json** lists the times of day a duty can fall
   in, and which TASS periods clash with each (Before School ↔ P1 Morning
   Class, After School ↔ P9). `doubles` lists the consecutive period pairs
   that count as a double lesson (not across a break); edited in the
-  **Settings** tab.
+  **Doubles** tab.
 - `unavailable` in **curriculum.csv** (per group) and **teachers.csv** hold
   periods a group or teacher can't use, in the same `day:period` form.
 
-### Duty builder (Duties tab)
+### Duty builder (Duty roster tab)
 
 A grid of duties (rows, grouped by time of day) × days of the cycle, with
 a teacher dropdown in each cell. Red cells are problems: the teacher is away
@@ -176,7 +176,7 @@ free teacher with the fewest duties. Teacher view shows each teacher's
 duties under their grid, Print has a "Yard duty roster" sheet, and
 **Download duties.csv** saves the roster.
 
-### Class information (Classes tab)
+### Class information (Class plan tab)
 
 Timetabler's [7A] screen: pick a year, and each column is a group (line)
 of classes that run at the same time, with the group's periods per cycle,
@@ -193,23 +193,23 @@ what is timetabled. This is the plan only: it does not move lessons.
 
 Timetabler's [5], [4A]/[1E], [13B] and [1C] in four small screens:
 
-- **Rooms** tab: name, seats (with the biggest class planned into the room
+- **Room settings** tab: name, seats (with the biggest class planned into the room
   beside it), periods used, and a **Periods** button that opens a grid of
   the cycle to tick periods the room can't be used. Grey cells already
   have a lesson, so a red grey cell is a clash with the current timetable.
-- **Teachers** tab gains **Max periods** (current load shown beside it),
+- **Teacher settings** tab gains **Max periods** (current load shown beside it),
   **Min off/day**, **Max consec.** and a **Periods** button for periods the
   teacher can't teach.
-- **Classes** tab: each group header has an **Unavail** button for periods
+- **Class plan** tab: each group header has an **Unavail** button for periods
   the group may not use (e.g. Year 12 only after school).
-- **Settings** tab: tick which consecutive period pairs are doubles.
+- **Doubles** tab: tick which consecutive period pairs are doubles.
 
 All of these produce Issues when the current timetable breaks them
 (teacher/room/group in an unavailable period, class bigger than its room,
 teacher over max periods, under minimum periods off, or over max
 consecutive), and they are the constraints the solver will honour.
 
-The **Teachers** tab holds each teacher's duty settings (name, email, max
+The **Teacher settings** tab holds each teacher's duty settings (name, email, max
 duties, no duties, days away as tick boxes per cycle day). The builder marks
 a teacher ✗ for a cell when they are away, do no duties, already have a
 duty then, teach a clashing period, or would go over their cap; auto-fill

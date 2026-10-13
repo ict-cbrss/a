@@ -13,12 +13,12 @@ plan live alongside the timetable in the same page.
 
 | Timetabler task | Where it is now |
 | --- | --- |
-| Class Information [7A] | **Classes** tab |
-| Teachers, Rooms, Period details [4A, 5, 1C] | **Teachers**, **Rooms**, **Settings** tabs |
+| Class Information [7A] | **Class plan** tab |
+| Teachers, Rooms, Period details [4A, 5, 1C] | **Teachers**, **Rooms**, **Doubles** tabs |
 | Construct Timetable [12, 13] | **Construct** tab + the cloud build |
 | Edit Timetable [14] | **Teacher / Room / Class / Year / Student** tabs |
 | Check Timetable [16] | **Issues** tab |
-| Yard duties [10, 15, 24] | **Duties** tab, duty sheets under **Print** |
+| Yard duties [10, 15, 24] | **Duty roster** tab, duty sheets under **Print** |
 | Master, class, teacher timetables [17–22] | **Print** tab and the PDFs |
 | Quick Export to TASS | **Download TTable.txt / SCourse.txt** buttons |
 
@@ -32,12 +32,13 @@ The tabs across the top:
 
 | Tab | What it shows |
 | --- | --- |
+| Home | Counts, errors, unsaved edits, and the term's steps with links. |
 | Teacher, Room, Class, Year, Student | A timetable grid for one teacher, room, class, year or student. Pick who from the dropdown. This is where you edit the timetable. |
-| Classes | The plan: groups (lines) of classes per year, with periods, teachers and rooms. |
-| Duties | The yard duty roster builder. |
-| Teachers | Per-teacher settings: email, duty cap, days away, period limits. |
-| Rooms | Rooms, seats and when a room can't be used. |
-| Settings | Which period pairs count as a double. |
+| Class plan | The plan: groups (lines) of classes per year, with periods, teachers and rooms. |
+| Duty roster | The yard duty roster builder. |
+| Teacher settings | Per-teacher settings: email, duty cap, days away, period limits. |
+| Room settings | Rooms, seats and when a room can't be used. |
+| Doubles | Which period pairs count as a double. |
 | Construct | The lines the solver will place, locks, and where each line can go. |
 | Issues | Every clash or broken rule, updated as you edit. |
 | Changes | A plain-English list of every edit you've made. |
@@ -76,8 +77,8 @@ The day is laid out as: Morning Class (sometimes) · MC 9:00 · Main Lesson
 Steps 1, 4, 5 and 7 happen in the editor; step 3 runs on GitHub. If the result
 isn't right, change the plan or lock what should stay, and build again.
 
-1. **Set the plan.** In **Classes**, check each year's groups: periods,
-   doubles, teacher, room. In **Teachers**, **Rooms** and **Settings**, record
+1. **Set the plan.** In **Class plan**, check each year's groups: periods,
+   doubles, teacher, room. In **Teacher settings**, **Room settings** and **Doubles**, record
    days away, period limits, room seats and the double-period pairs. Lock any
    groups that must not move.
 2. **Save to GitHub.** Download `curriculum.csv`, `teachers.csv`, `rooms.csv`
@@ -133,7 +134,7 @@ When you're done, **Download TTable.txt** and **Download SCourse.txt**. With no
 edits they are byte-for-byte the files you loaded, so TASS imports them exactly
 as before.
 
-## The plan: Classes tab
+## The plan: Class plan tab
 
 The plan is what the solver builds from, and it is Timetabler's Class
 Information screen laid out the same way. Pick a year; each column is a
@@ -167,7 +168,7 @@ produce, and what Issues compares against.
 **Download curriculum.csv** saves the plan; it goes in the repo's `config/`
 folder.
 
-## Settings: Teachers, Rooms, Settings tabs
+## Settings: Teacher settings, Room settings, Doubles tabs
 
 These hold the rules the solver obeys and the Issues tab checks. All three save
 to files that go in `config/`.
@@ -201,7 +202,7 @@ row at once.
 
 ## Yard duties
 
-Duties are built in the **Duties** tab and are stand-alone: they never go to
+Duties are built in the **Duty roster** tab and are stand-alone: they never go to
 TASS. The tab starts with the roster loaded from `duties.csv`.
 
 The grid has one row per duty, grouped by time of day (Before School, Recess,

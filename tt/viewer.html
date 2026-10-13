@@ -26,9 +26,61 @@
   --drop: #1f3b28;
 }
 * { box-sizing: border-box; }
-body { margin: 0; padding: 16px; background: var(--bg); color: var(--fg);
+body { margin: 0; padding: 0; background: var(--bg); color: var(--fg);
   font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
-h1 { font-size: 20px; margin: 0 0 12px; }
+h1 { font-size: 18px; margin: 0; }
+.app { display: flex; min-height: 100vh; }
+aside.nav { width: 190px; flex: none; background: var(--head); border-right: 1px solid var(--line); padding: 14px 10px;
+  position: sticky; top: 0; height: 100vh; overflow: auto; box-sizing: border-box; }
+aside.nav .brand { font-weight: 700; font-size: 15px; padding: 0 10px 10px; }
+aside.nav .brand small { display: block; color: var(--muted); font-weight: 400; font-size: 12px; }
+aside.nav h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 14px 10px 4px; font-weight: 600; }
+aside.nav button { display: block; width: 100%; text-align: left; border: none; background: none; padding: 7px 10px; border-radius: 6px; color: var(--fg); }
+aside.nav button:hover { background: var(--line); }
+aside.nav button[aria-pressed="true"] { background: var(--cell); color: var(--accent); font-weight: 600; }
+aside.nav .badge { float: right; font-size: 11px; border-radius: 10px; padding: 1px 7px; background: var(--line); color: var(--fg); font-weight: 600; }
+aside.nav .badge.bad { background: var(--bad); color: var(--bad-fg); }
+main { flex: 1; min-width: 0; padding: 16px 20px 32px; }
+.topbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.topbar .sub { color: var(--muted); font-size: 12px; }
+.chip { border-radius: 14px; padding: 4px 12px; font-size: 12px; }
+.chip.bad { background: var(--bad); color: var(--bad-fg); border-color: transparent; }
+.chip.ok { background: var(--drop); border-color: transparent; }
+details.menu { position: relative; }
+details.menu summary { list-style: none; cursor: pointer; border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; background: var(--head); }
+details.menu summary::-webkit-details-marker { display: none; }
+details.menu .menu-body { position: absolute; right: 0; top: calc(100% + 4px); z-index: 20; background: var(--bg); border: 1px solid var(--line);
+  border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.15); padding: 8px; width: 340px; }
+details.menu .menu-body button { display: block; width: 100%; text-align: left; border: none; background: none; padding: 8px 10px; border-radius: 6px; }
+details.menu .menu-body button:hover { background: var(--head); }
+details.menu .menu-body button small { display: block; color: var(--muted); font-weight: 400; }
+details.menu .menu-body b { display: block; padding: 6px 10px 2px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin: 12px 0 20px; }
+.card { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; background: var(--head); }
+.card .big { font-size: 26px; font-weight: 700; line-height: 1.1; }
+.card .big.bad { color: var(--bad-fg); }
+.card .big.warn { color: var(--warn-fg); }
+.card small { color: var(--muted); }
+.card button { margin-top: 8px; }
+.steps { counter-reset: step; max-width: 760px; }
+.steps div { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); align-items: flex-start; }
+.steps div::before { counter-increment: step; content: counter(step); flex: none; width: 26px; height: 26px; border-radius: 50%;
+  background: var(--cell); color: var(--cell-fg); font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
+.steps b { display: block; }
+.steps small { color: var(--muted); }
+.steps a { color: var(--accent); cursor: pointer; text-decoration: underline; }
+/* Lesson cards tinted by year so a grid reads at a glance; clashes stay red */
+.l[data-y="7"] { background: #eaf3ff; } .l[data-y="8"] { background: #e9f7ee; } .l[data-y="9"] { background: #fff4e0; }
+.l[data-y="10"] { background: #f3eaff; } .l[data-y="11"] { background: #e6f6f8; } .l[data-y="12"] { background: #ffeaf0; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .l[data-y] { background: var(--cell); } }
+:root[data-theme="dark"] .l[data-y] { background: var(--cell); }
+@media (max-width: 900px) {
+  .app { display: block; }
+  aside.nav { width: auto; height: auto; position: static; display: flex; overflow-x: auto; gap: 2px; padding: 8px; border-right: none; border-bottom: 1px solid var(--line); }
+  aside.nav .brand, aside.nav h3 { display: none; }
+  aside.nav button { width: auto; white-space: nowrap; }
+  main { padding: 12px; }
+}
 h2 { font-size: 16px; margin: 16px 0 8px; }
 .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
 button, select, input { font: inherit; color: var(--fg); background: var(--head);
@@ -155,7 +207,8 @@ th small { color: var(--muted); font-weight: 400; font-size: 11px; display: bloc
 @media print {
   @page { size: A3 portrait; margin: 10mm; }
   body { padding: 0; background: #fff; color: #000; }
-  h1, .bar, #note, #grid, #members, #issues, #changes, .noprint { display: none !important; }
+  aside.nav, .topbar, .bar, #note, #grid, #members, #issues, #changes, #home, .noprint { display: none !important; }
+  main { padding: 0; }
   .sheet { break-after: page; margin: 0; }
   .sheet:last-child { break-after: auto; }
   .sheet th, .sheet td { border-color: #000; }
@@ -169,19 +222,34 @@ th small { color: var(--muted); font-weight: 400; font-size: 11px; display: bloc
 </style>
 </head>
 <body>
-<h1>Timetable Editor</h1>
-<div class="bar" id="views"></div>
-<div class="bar">
-  <select id="pick" aria-label="Choose"></select>
-  <span id="info" class="summary"></span>
+<div class="app">
+<aside class="nav" id="views" aria-label="Sections"></aside>
+<main>
+<div class="topbar">
+  <div><h1 id="app-title">Timetable Editor</h1><div class="sub" id="app-sub"></div></div>
   <span class="spacer"></span>
+  <button id="chip-issues" type="button" class="chip" title="Go to Issues"></button>
+  <button id="chip-edits" type="button" class="chip" title="Go to Changes"></button>
   <button id="undo" type="button">Undo</button>
   <button id="redo" type="button">Redo</button>
   <button id="reset" type="button">Reset</button>
-  <button id="dl-ttable" type="button" class="primary">Download TTable.txt</button>
-  <button id="dl-scourse" type="button" class="primary">Download SCourse.txt</button>
+  <button id="dl-ttable" type="button" class="primary" title="The timetable file for TASS">Export TTable.txt</button>
+  <button id="dl-scourse" type="button" class="primary" title="The enrolments file for TASS">Export SCourse.txt</button>
+  <details class="menu" id="save-menu"><summary>Save settings ▾</summary><div class="menu-body">
+    <b>Put these in the repo's config/ folder</b>
+    <button type="button" data-save="dl-curriculum">curriculum.csv <small>Class plan, cross-year groups, locks (Classes tab)</small></button>
+    <button type="button" data-save="dl-teachers">teachers.csv <small>Names, emails, days away, period and duty limits</small></button>
+    <button type="button" data-save="dl-rooms">rooms.csv <small>Rooms, seats, unavailable periods</small></button>
+    <button type="button" data-save="dl-duties">duties.csv <small>The yard duty roster</small></button>
+    <button type="button" data-save="dl-school">school.json <small>Cycle, periods, doubles</small></button>
+  </div></details>
 </div>
 <p class="note" id="note"></p>
+<div class="bar" id="viewbar">
+  <select id="pick" aria-label="Choose"></select>
+  <span id="info" class="summary"></span>
+</div>
+<div id="home" class="hidden"></div>
 <div id="grid" class="wrap"></div>
 <div id="members"></div>
 <div id="issues" class="hidden"></div>
@@ -280,6 +348,8 @@ th small { color: var(--muted); font-weight: 400; font-size: 11px; display: bloc
 </dialog>
 <datalist id="rooms"></datalist>
 <datalist id="teachers"></datalist>
+</main>
+</div>
 
 <script>
 const DATA = /*DATA*/null;
@@ -644,6 +714,7 @@ function classCount(c) { return state.enrolments.filter(e => e.class_code === c)
 function teacherLoad(t) { return new Set(state.lessons.filter(l => l.teacher === t).map(l => slotKey(l.day, l.period))).size; }
 
 const VIEWS = {
+  Home:    {},
   Teacher: { opts: () => uniq("teacher"), label: t => `${t} — ${teacherLoad(t)} periods/cycle`, match: (l, t) => l.teacher === t, clash: true },
   Room:    { opts: () => uniq("room"), label: r => r, match: (l, r) => l.room === r, clash: true },
   Class:   { opts: allClasses, label: c => `${className(c)} [${c}] — ${classCount(c)} students`, match: (l, c) => l.class_code === c },
@@ -660,17 +731,61 @@ const VIEWS = {
   Changes: {},
   Print:   {},
 };
-let view = "Teacher";
+let view = "Home";
+const NAV = [["", ["Home"]], ["Timetable", ["Teacher", "Room", "Class", "Year", "Student"]], ["Plan", ["Classes", "Construct", "Teachers", "Rooms", "Settings"]],
+             ["Yard duties", ["Duties"]], ["Review", ["Issues", "Changes", "Print"]]];
+const NAV_LABEL = {Classes: "Class plan", Teachers: "Teacher settings", Rooms: "Room settings", Settings: "Doubles", Duties: "Duty roster"};
 const $ = id => document.getElementById(id);
 
 function renderViews() {
-  const errs = issues.filter(i => i.severity === "error").length;
-  $("views").innerHTML = Object.keys(VIEWS).map(v => {
-    const text = v === "Issues" ? `Issues (${errs} errors)` : v === "Changes" ? `Changes (${log.length})` : v;
-    return `<button aria-pressed="${v === view}" data-v="${v}">${text}</button>`;
-  }).join("");
+  const errs = issues.filter(i => i.severity === "error").length, warns = issues.length - errs;
+  const badge = v => v === "Issues" ? `<span class="badge ${errs ? "bad" : ""}">${errs || warns || ""}</span>` : v === "Changes" && log.length ? `<span class="badge">${log.length}</span>` : "";
+  $("views").innerHTML = `<div class="brand">${esc(CFG.school || "Timetable Editor")}<small>${esc(CFG.term || "")}</small></div>` +
+    NAV.map(([group, vs]) => (group ? `<h3>${esc(group)}</h3>` : "") + vs.map(v => `<button aria-pressed="${v === view}" data-v="${v}">${esc(NAV_LABEL[v] || v)}${badge(v)}</button>`).join("")).join("");
   $("undo").disabled = !undoStack.length; $("redo").disabled = !redoStack.length; $("reset").disabled = !log.length;
+  $("app-title").textContent = view === "Home" ? "Timetable Editor" : (NAV_LABEL[view] || view);
+  $("app-sub").textContent = [CFG.school, CFG.term].filter(Boolean).join(" · ");
+  const ci = $("chip-issues"); ci.textContent = errs ? `${errs} error${errs === 1 ? "" : "s"}` : warns ? `${warns} warning${warns === 1 ? "" : "s"}` : "No issues";
+  ci.className = "chip " + (errs ? "bad" : "ok");
+  const ce = $("chip-edits"); ce.textContent = log.length ? `${log.length} unsaved edit${log.length === 1 ? "" : "s"}` : "No edits"; ce.className = "chip";
 }
+$("chip-issues").addEventListener("click", () => { view = "Issues"; renderViews(); renderPick(); renderGrid(); });
+$("chip-edits").addEventListener("click", () => { view = "Changes"; renderViews(); renderPick(); renderGrid(); });
+$("save-menu").addEventListener("click", e => {
+  const b = e.target.closest("button[data-save]"); if (!b) return;
+  $(b.dataset.save).click(); $("save-menu").removeAttribute("open");
+});
+document.addEventListener("click", e => { if (!e.target.closest("#save-menu")) $("save-menu").removeAttribute("open"); });
+
+// ---------- home ----------
+function renderHome() {
+  const errs = issues.filter(i => i.severity === "error").length, warns = issues.length - errs;
+  const nYears = new Set(state.lessons.map(l => l.year)).size, nClasses = new Set(state.lessons.map(l => l.class_code)).size;
+  const nTeachers = allTeachers().length, nStudents = students().length, nRooms = uniq("room").length;
+  const go = (v, text) => `<a data-go="${v}">${text}</a>`;
+  $("home").innerHTML = `
+    <p class="note">The timetable as loaded${CFG.term ? ` for ${esc(CFG.term)}` : ""}: ${nYears} years, ${nClasses} classes, ${nTeachers} teachers, ${nRooms} rooms${nStudents ? `, ${nStudents} students` : " (no student file loaded)"}. Edits stay in this browser until you export or press Reset.</p>
+    <div class="cards">
+      <div class="card"><div class="big ${errs ? "bad" : ""}">${errs}</div><small>error${errs === 1 ? "" : "s"} to fix before importing</small><br><button type="button" data-go="Issues">Open Issues</button></div>
+      <div class="card"><div class="big ${warns ? "warn" : ""}">${warns}</div><small>warning${warns === 1 ? "" : "s"} worth a look</small><br><button type="button" data-go="Issues">See them</button></div>
+      <div class="card"><div class="big">${log.length}</div><small>unsaved edit${log.length === 1 ? "" : "s"} in this browser</small><br><button type="button" data-go="Changes">Review changes</button></div>
+      <div class="card"><div class="big">${state.duties.length}</div><small>yard duties rostered</small><br><button type="button" data-go="Duties">Open duty roster</button></div>
+    </div>
+    <h2>A term in steps</h2>
+    <div class="steps">
+      <div><span><b>Set the plan</b><small>Check each year's groups in ${go("Classes", "Class plan")}; record days away and limits in ${go("Teachers", "Teacher settings")}, ${go("Rooms", "Room settings")} and ${go("Settings", "Doubles")}. Lock groups that must not move in ${go("Construct", "Construct")}.</small></span></div>
+      <div><span><b>Save settings to GitHub</b><small>Use <em>Save settings</em> (top right) and upload the files into the repo's config/ folder.</small></span></div>
+      <div><span><b>Build the timetable in the cloud</b><small>GitHub → Actions → Build timetable → Run workflow. Download the artifact when it finishes.</small></span></div>
+      <div><span><b>Review and hand-edit</b><small>Open the new editor page, check ${go("Issues", "Issues")}, then drag or click lessons in the ${go("Teacher", "Teacher")}, ${go("Room", "Room")}, ${go("Class", "Class")}, ${go("Year", "Year")} or ${go("Student", "Student")} views.</small></span></div>
+      <div><span><b>Export to TASS</b><small><em>Export TTable.txt</em> and <em>Export SCourse.txt</em> (top right), then import them into TASS as before.</small></span></div>
+      <div><span><b>Print and email</b><small>${go("Print", "Print")} the master, a year, the duty roster or per-teacher duty sheets.</small></span></div>
+    </div>`;
+  $("info").textContent = "";
+}
+$("home").addEventListener("click", e => {
+  const el = e.target.closest("[data-go]"); if (!el) return;
+  view = el.dataset.go; renderViews(); renderPick(); renderGrid();
+});
 
 function renderPick() {
   const v = VIEWS[view], pick = $("pick"), prev = pick.value;
@@ -684,6 +799,9 @@ function renderPick() {
 function renderGrid() {
   const v = VIEWS[view];
   for (const id of ["grid", "members"]) $(id).classList.toggle("hidden", !v.opts || view === "Classes");
+  $("home").classList.toggle("hidden", view !== "Home");
+  $("viewbar").classList.toggle("hidden", !v.opts);
+  if (view === "Home") { renderHome(); return; }
   $("classes").classList.toggle("hidden", view !== "Classes");
   $("issues").classList.toggle("hidden", view !== "Issues");
   $("changes").classList.toggle("hidden", view !== "Changes");
@@ -727,7 +845,7 @@ function renderGrid() {
       const isClash = v.clash && Object.keys(byClass).length > 1;
       if (isClash) clashes++;
       html += `<td class="${isClash ? "clash" : ""} ${weekCls(d)}" data-d="${d}" data-p="${p}">${Object.entries(byClass).map(([c, ls]) =>
-        `<div class="l" draggable="true" data-c="${esc(c)}" data-d="${d}" data-p="${p}" title="${esc(c)}"><b>${esc(className(c, d))}</b>${esc([...new Set(ls.map(l => l.room))].join("/"))} · ${esc(ls.map(l => l.teacher).join(", "))}</div>`).join("")}</td>`;
+        `<div class="l" draggable="true" data-c="${esc(c)}" data-d="${d}" data-p="${p}" data-y="${esc(ls[0].year)}" title="${esc(c)}"><b>${esc(className(c, d))}</b>${esc([...new Set(ls.map(l => l.room))].join("/"))} · ${esc(ls.map(l => l.teacher).join(", "))}</div>`).join("")}</td>`;
     }
     html += "</tr>";
   }
@@ -1301,8 +1419,8 @@ function renderAll() {
   renderViews(); renderPick(); renderGrid();
   $("rooms").innerHTML = uniq("room").map(r => `<option value="${esc(r)}">`).join("");
   $("teachers").innerHTML = uniq("teacher").map(t => `<option value="${esc(t)}">`).join("");
-  $("note").textContent = log.length ? `${log.length} unsaved edit${log.length === 1 ? "" : "s"} — kept in this browser until you press Reset. Download both files to import into TASS; duty changes go in duties.csv (Duties tab).`
-    : "Drag a lesson to move it. Click a lesson to change its room or teachers. Click an empty cell to add a lesson.";
+  $("note").textContent = ["Teacher", "Room", "Class", "Year", "Student"].includes(view)
+    ? "Drag a lesson to move it. Click a lesson to change its room or teachers. Click an empty cell to add a lesson." : "";
 }
 
 // ---------- lesson dialog ----------
