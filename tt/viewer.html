@@ -66,6 +66,30 @@ dialog .row select { min-width: 0; flex: 1; }
 dialog .actions { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
 dialog .hint { color: var(--muted); font-size: 12px; margin-top: 4px; }
 .note { color: var(--muted); font-size: 12px; margin: 8px 0; }
+th.block { font-weight: 700; }
+th small { color: var(--muted); font-weight: 400; font-size: 11px; display: block; }
+/* Print view: the master timetable, laid out like the A3 printouts */
+.sheet { margin-bottom: 24px; }
+.sheet h2 { text-align: center; margin: 0 0 6px; font-size: 15px; }
+.sheet table { table-layout: fixed; }
+.sheet th, .sheet td { font-size: 10.5px; padding: 2px 3px; cursor: default; }
+.sheet th { position: static; }
+.sheet td.yr, .sheet th.yr { width: 26px; font-weight: 700; text-align: center; }
+.sheet th.day, .sheet td.day { width: 36px; font-weight: 700; }
+.sheet .c { display: grid; grid-template-columns: 1fr auto; gap: 0 6px; }
+.sheet .c .nm { font-weight: 600; }
+.sheet .c .rt { white-space: nowrap; }
+.sheet .foot { color: var(--muted); font-size: 10px; margin-top: 4px; }
+@media print {
+  @page { size: A3 landscape; margin: 10mm; }
+  body { padding: 0; background: #fff; color: #000; }
+  h1, .bar, #note, #grid, #members, #issues, #changes, .noprint { display: none !important; }
+  .sheet { break-after: page; margin: 0; }
+  .sheet:last-child { break-after: auto; }
+  .sheet th, .sheet td { border-color: #000; }
+  .sheet th { background: #eee; }
+  .sheet td.yr, .sheet th.yr { background: #fff; }
+}
 </style>
 </head>
 <body>
@@ -86,6 +110,15 @@ dialog .hint { color: var(--muted); font-size: 12px; margin-top: 4px; }
 <div id="members"></div>
 <div id="issues" class="hidden"></div>
 <div id="changes" class="hidden"></div>
+<div id="print" class="hidden">
+  <div class="bar noprint">
+    <select id="print-block" aria-label="Block"></select>
+    <select id="print-year" aria-label="Year"></select>
+    <button type="button" class="primary" id="print-btn">Print</button>
+    <span class="summary">Prints on A3 landscape, one block per page. Use "Save as PDF" in the print dialog for a file.</span>
+  </div>
+  <div id="sheets"></div>
+</div>
 
 <dialog id="dlg">
   <form method="dialog" id="dlg-form">
@@ -132,6 +165,31 @@ const slotKey = (d, p) => `${d},${p}`;
 const days = [...new Set(ORIGINAL.lessons.map(l => l.day))].sort((a, b) => a - b);
 const periods = [...new Set(ORIGINAL.lessons.map(l => l.period))].sort((a, b) => a - b);
 
+// ---------- school config: blocks, weekdays, period names, class names ----------
+const CFG = DATA.config || {};
+const BLOCKS = (CFG.blocks || []).map((b, i) => ({...b, n: i + 1}));
+const blockOf = d => BLOCKS.find(b => b.days.includes(d));
+const weekdayOf = d => { const b = blockOf(d); return b ? (CFG.weekdays || [])[b.days.indexOf(d)] || `Day ${d}` : `Day ${d}`; };
+const dayLabel = d => { const b = blockOf(d); return b && BLOCKS.length > 1 ? `${b.short} ${weekdayOf(d)}` : weekdayOf(d); };
+// Period groups: a config period may span several TASS period numbers (Main Lesson = P3+P4).
+const PGROUPS = (CFG.periods || []).filter(p => p.ids.some(id => periods.includes(id)));
+const pgroupOf = p => PGROUPS.find(g => g.ids.includes(p));
+const periodLabel = p => { const g = pgroupOf(p); return g ? g.name + (g.ids.length > 1 ? ` (P${p})` : "") : `P${p}`; };
+const periodTime = p => { const g = pgroupOf(p); return g ? g.time : ""; };
+const dayPeriodLabel = (d, p) => `${dayLabel(d)} ${periodLabel(p)}`;
+const NAMES = new Map();  // code -> {all: name, byBlock: {n: name}}
+for (const [code, name, block] of CFG.names || []) {
+  const e = NAMES.get(code) || NAMES.set(code, {all: null, byBlock: {}}).get(code);
+  if (block) e.byBlock[block] = name; else e.all = name;
+}
+function className(code, d) {
+  const e = NAMES.get(code); if (!e) return code;
+  const b = blockOf(d);
+  return (b && e.byBlock[b.n]) || e.all || Object.values(e.byBlock)[0] || code;
+}
+const yearSort = (a, b) => { const o = CFG.year_order || []; const ia = o.indexOf(a), ib = o.indexOf(b);
+  return (ia < 0 ? 1 : 0) - (ib < 0 ? 1 : 0) || ia - ib || natural(a, b); };
+
 // ---------- state, undo and persistence ----------
 let state = clone(ORIGINAL), log = [], undoStack = [], redoStack = [];
 const STORE_KEY = "tt-edits-" + hash(JSON.stringify(DATA.lessons) + JSON.stringify(DATA.enrolments));
@@ -176,20 +234,20 @@ const uniq = k => [...new Set(state.lessons.map(l => l[k]))].sort(natural);
 // ---------- edits ----------
 function moveLesson(cls, d1, p1, d2, p2) {
   if (d1 === d2 && p1 === p2) return;
-  apply(`Moved ${cls} from Day ${d1} P${p1} to Day ${d2} P${p2}`, s => {
-    if (lessonsAt(s, cls, d2, p2).length) return `${cls} already has a lesson on Day ${d2} P${p2}.`;
+  apply(`Moved ${cls} from ${dayPeriodLabel(d1, p1)} to ${dayPeriodLabel(d2, p2)}`, s => {
+    if (lessonsAt(s, cls, d2, p2).length) return `${cls} already has a lesson on ${dayPeriodLabel(d2, p2)}.`;
     for (const l of lessonsAt(s, cls, d1, p1)) { l.day = d2; l.period = p2; }
   });
 }
 function saveLesson({cls, d1, p1, d2, p2, room, teachers, all, isNew}) {
   if (!teachers.length) return alert("Enter at least one teacher.");
   if (!room) return alert("Enter a room.");
-  const desc = isNew ? `Added ${cls} on Day ${d2} P${p2} (${room}, ${teachers.join(", ")})`
-    : `Edited ${cls} on Day ${d1} P${p1}` + (d1 !== d2 || p1 !== p2 ? ` → Day ${d2} P${p2}` : "")
+  const desc = isNew ? `Added ${cls} on ${dayPeriodLabel(d2, p2)} (${room}, ${teachers.join(", ")})`
+    : `Edited ${cls} on ${dayPeriodLabel(d1, p1)}` + (d1 !== d2 || p1 !== p2 ? ` → ${dayPeriodLabel(d2, p2)}` : "")
       + ` (${room}, ${teachers.join(", ")})` + (all ? " for every period" : "");
   return apply(desc, s => {
     if ((isNew || d1 !== d2 || p1 !== p2) && lessonsAt(s, cls, d2, p2).length)
-      return `${cls} already has a lesson on Day ${d2} P${p2}.`;
+      return `${cls} already has a lesson on ${dayPeriodLabel(d2, p2)}.`;
     const info = classInfo(cls);
     const slots = [[d2, p2]];
     if (!isNew) for (const l of lessonsAt(s, cls, d1, p1)) { l.day = d2; l.period = p2; }
@@ -204,7 +262,7 @@ function saveLesson({cls, d1, p1, d2, p2, room, teachers, all, isNew}) {
   });
 }
 function deleteLesson(cls, d, p) {
-  apply(`Deleted ${cls} on Day ${d} P${p}`, s => { s.lessons = s.lessons.filter(l => !(l.class_code === cls && l.day === d && l.period === p)); });
+  apply(`Deleted ${cls} on ${dayPeriodLabel(d, p)}`, s => { s.lessons = s.lessons.filter(l => !(l.class_code === cls && l.day === d && l.period === p)); });
 }
 function changeEnrolment(sid, from, to) {
   if (from === to) return;
@@ -278,12 +336,13 @@ function teacherLoad(t) { return new Set(state.lessons.filter(l => l.teacher ===
 const VIEWS = {
   Teacher: { opts: () => uniq("teacher"), label: t => `${t} — ${teacherLoad(t)} periods/cycle`, match: (l, t) => l.teacher === t, clash: true },
   Room:    { opts: () => uniq("room"), label: r => r, match: (l, r) => l.room === r, clash: true },
-  Class:   { opts: allClasses, label: c => `${c} — ${classCount(c)} students`, match: (l, c) => l.class_code === c },
+  Class:   { opts: allClasses, label: c => `${className(c)} [${c}] — ${classCount(c)} students`, match: (l, c) => l.class_code === c },
   Year:    { opts: () => uniq("year"), label: y => `Year ${y}`, match: (l, y) => l.year === y },
   Student: { opts: () => students().map(s => s.student_id), label: id => { const s = students().find(s => s.student_id === id); return `${s.name} (Yr ${s.year}, ${id})`; },
              match: (l, id) => classesOf(id).has(l.class_code), clash: true },
   Issues:  {},
   Changes: {},
+  Print:   {},
 };
 let view = "Teacher";
 const $ = id => document.getElementById(id);
@@ -311,10 +370,12 @@ function renderGrid() {
   for (const id of ["grid", "members"]) $(id).classList.toggle("hidden", !v.opts);
   $("issues").classList.toggle("hidden", view !== "Issues");
   $("changes").classList.toggle("hidden", view !== "Changes");
+  $("print").classList.toggle("hidden", view !== "Print");
   $("info").textContent = "";
+  if (view === "Print") { renderPrint(); return; }
   if (view === "Issues") {
     $("issues").innerHTML = issues.length ? `<ul class="issues">${issues.map(i =>
-      `<li class="${i.severity}">${i.day ? `Day ${i.day} P${i.period}: ` : ""}${esc(i.message)}</li>`).join("")}</ul>` : "<p>No issues found.</p>";
+      `<li class="${i.severity}">${i.day ? `${esc(dayPeriodLabel(i.day, i.period))}: ` : ""}${esc(i.message)}</li>`).join("")}</ul>` : "<p>No issues found.</p>";
     return;
   }
   if (view === "Changes") {
@@ -327,16 +388,18 @@ function renderGrid() {
   const cell = {};
   for (const l of mine) ((cell[slotKey(l.day, l.period)] ||= {})[l.class_code] ||= []).push(l);
   let clashes = 0;
-  const weekCls = d => d % 5 === 1 && d > 1 ? "week" : "";
-  let html = `<table><thead><tr><th>Period</th>${days.map(d => `<th class="${weekCls(d)}">Day ${d}</th>`).join("")}</tr></thead><tbody>`;
+  const weekCls = d => { const b = blockOf(d); return b ? (b.days[0] === d && b.n > 1 ? "week" : "") : (d % 5 === 1 && d > 1 ? "week" : ""); };
+  let html = "<table><thead>";
+  if (BLOCKS.length) html += `<tr><th></th>${BLOCKS.map(b => `<th class="block week" colspan="${b.days.filter(d => days.includes(d)).length}">${esc(b.name)} <small>${esc(b.weeks || "")}</small></th>`).join("")}</tr>`;
+  html += `<tr><th>Period</th>${days.map(d => `<th class="${weekCls(d)}">${esc(weekdayOf(d))}</th>`).join("")}</tr></thead><tbody>`;
   for (const p of periods) {
-    html += `<tr><th>P${p}</th>`;
+    html += `<tr><th>${esc(periodLabel(p))}<small>${esc(periodTime(p))}</small></th>`;
     for (const d of days) {
       const byClass = cell[slotKey(d, p)] || {};
       const isClash = v.clash && Object.keys(byClass).length > 1;
       if (isClash) clashes++;
       html += `<td class="${isClash ? "clash" : ""} ${weekCls(d)}" data-d="${d}" data-p="${p}">${Object.entries(byClass).map(([c, ls]) =>
-        `<div class="l" draggable="true" data-c="${esc(c)}" data-d="${d}" data-p="${p}"><b>${esc(c)}</b>${esc([...new Set(ls.map(l => l.room))].join("/"))} · ${esc(ls.map(l => l.teacher).join(", "))}</div>`).join("")}</td>`;
+        `<div class="l" draggable="true" data-c="${esc(c)}" data-d="${d}" data-p="${p}" title="${esc(c)}"><b>${esc(className(c, d))}</b>${esc([...new Set(ls.map(l => l.room))].join("/"))} · ${esc(ls.map(l => l.teacher).join(", "))}</div>`).join("")}</td>`;
     }
     html += "</tr>";
   }
@@ -362,6 +425,59 @@ function renderMembers(key) {
   } else m.innerHTML = "";
 }
 
+// ---------- print view: master timetable (all years) or one year, per block ----------
+function printBlocks() { return BLOCKS.length ? BLOCKS : [{name: "Full cycle", short: "", weeks: "", days, n: 1}]; }
+function printGroups() { return PGROUPS.length ? PGROUPS : periods.map(p => ({ids: [p], name: `P${p}`, time: ""})); }
+function renderPrintControls() {
+  const bl = $("print-block"), yr = $("print-year");
+  const pb = bl.value, py = yr.value;
+  bl.innerHTML = `<option value="">All blocks</option>` + printBlocks().map(b => `<option value="${b.n}">${esc(b.name)} ${esc(b.weeks)}</option>`).join("");
+  const years = uniq("year").sort(yearSort);
+  yr.innerHTML = `<option value="">All years (master)</option>` + years.map(y => `<option value="${esc(y)}">Year ${esc(y)}</option>`).join("");
+  if ([...bl.options].some(o => o.value === pb)) bl.value = pb;
+  if ([...yr.options].some(o => o.value === py)) yr.value = py;
+}
+function renderPrint() {
+  renderPrintControls();
+  const blockSel = $("print-block").value, yearSel = $("print-year").value;
+  const groups = printGroups();
+  const years = uniq("year").sort(yearSort).filter(y => !yearSel || y === yearSel);
+  const term = CFG.term || "";
+  let html = "";
+  for (const b of printBlocks()) {
+    if (blockSel && String(b.n) !== blockSel) continue;
+    const title = yearSel ? `Class ${yearSel} ${term} Timetable — ${b.name} ${b.weeks}`.toUpperCase()
+                          : `${term} Master Timetable — ${b.name} (${b.weeks})`.toUpperCase();
+    html += `<div class="sheet"><h2>${esc(title.replace(/\s+/g, " ").trim())}</h2><table><thead><tr><th class="day"></th><th class="yr">YR</th>` +
+      groups.map(g => `<th>${esc(g.name)} <small>${esc(g.time)}</small></th>`).join("") + `</tr></thead><tbody>`;
+    for (const d of b.days.filter(d => days.includes(d))) {
+      years.forEach((y, i) => {
+        html += `<tr>${i === 0 ? `<td class="day" rowspan="${years.length}">${esc(weekdayOf(d))}</td>` : ""}<td class="yr">${esc(y)}</td>`;
+        for (const g of groups) {
+          // Group the slot's rows by class; a class in only some of the group's periods is flagged.
+          const rows = state.lessons.filter(l => l.day === d && l.year === y && g.ids.includes(l.period));
+          const byClass = new Map();
+          for (const l of rows) (byClass.get(l.class_code) || byClass.set(l.class_code, []).get(l.class_code)).push(l);
+          html += "<td>" + [...byClass.entries()].sort((a, b) => a[1][0].column - b[1][0].column).map(([c, ls]) => {
+            const ids = [...new Set(ls.map(l => l.period))];
+            const partial = g.ids.length > 1 && ids.length < g.ids.length ? ` <small>(P${ids.join(", P")} only)</small>` : "";
+            const seen = new Set();
+            const rt = ls.filter(l => !seen.has(l.teacher + l.room) && seen.add(l.teacher + l.room))
+              .map(l => `<span class="rt">${esc(l.room)} ${esc(l.teacher)}</span>`).join("<br>");
+            return `<div class="c"><span class="nm">${esc(className(c, d))}${partial}</span><span>${rt}</span></div>`;
+          }).join("") + "</td>";
+        }
+        html += "</tr>";
+      });
+    }
+    html += `</tbody></table><div class="foot">${esc(CFG.school || "")} · printed ${new Date().toLocaleDateString()}${log.length ? ` · includes ${log.length} unsaved edit${log.length === 1 ? "" : "s"}` : ""}</div></div>`;
+  }
+  $("sheets").innerHTML = html;
+}
+$("print-block").addEventListener("change", renderPrint);
+$("print-year").addEventListener("change", renderPrint);
+$("print-btn").addEventListener("click", () => window.print());
+
 function renderAll() {
   issues = check(state);
   renderViews(); renderPick(); renderGrid();
@@ -376,15 +492,15 @@ const dlg = $("dlg");
 let editing = null;
 function openDialog({cls, d, p, isNew}) {
   editing = {cls, d, p, isNew};
-  $("dlg-title").textContent = isNew ? `Add lesson — Day ${d} P${p}` : `${cls} — Day ${d} P${p}`;
+  $("dlg-title").textContent = isNew ? `Add lesson — ${dayPeriodLabel(d, p)}` : `${className(cls, d)} [${cls}] — ${dayPeriodLabel(d, p)}`;
   $("dlg-class-wrap").classList.toggle("hidden", !isNew);
   if (isNew) {
     const all = allClasses();
-    $("dlg-class").innerHTML = all.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
+    $("dlg-class").innerHTML = all.map(c => `<option value="${esc(c)}">${esc(className(c, d))} [${esc(c)}]</option>`).join("");
     $("dlg-class").value = view === "Class" ? $("pick").value : (cls || all[0]);
   }
-  $("dlg-day").innerHTML = days.map(x => `<option value="${x}">Day ${x}</option>`).join("");
-  $("dlg-period").innerHTML = periods.map(x => `<option value="${x}">P${x}</option>`).join("");
+  $("dlg-day").innerHTML = days.map(x => `<option value="${x}">${esc(dayLabel(x))}</option>`).join("");
+  $("dlg-period").innerHTML = periods.map(x => `<option value="${x}">${esc(periodLabel(x))}</option>`).join("");
   $("dlg-day").value = d; $("dlg-period").value = p;
   $("dlg-all").checked = false;
   $("dlg-delete").classList.toggle("hidden", isNew);
@@ -408,7 +524,7 @@ $("dlg-form").addEventListener("submit", e => {
     all: $("dlg-all").checked, isNew: editing.isNew});
   if (ok) dlg.close();
 });
-$("dlg-delete").addEventListener("click", () => { if (confirm(`Delete ${editing.cls} on Day ${editing.d} P${editing.p}?`)) { deleteLesson(editing.cls, editing.d, editing.p); dlg.close(); } });
+$("dlg-delete").addEventListener("click", () => { if (confirm(`Delete ${editing.cls} on ${dayPeriodLabel(editing.d, editing.p)}?`)) { deleteLesson(editing.cls, editing.d, editing.p); dlg.close(); } });
 $("dlg-cancel").addEventListener("click", () => dlg.close());
 
 // ---------- events ----------

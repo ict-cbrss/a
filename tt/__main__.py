@@ -4,7 +4,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-from . import formats, report, validate
+from . import config, formats, report, validate
 
 
 def _load(args):
@@ -27,7 +27,8 @@ def cmd_check(args):
 def cmd_report(args):
     lessons, enrolments = _load(args)
     issues = validate.check(lessons, enrolments)
-    Path(args.out).write_text(report.build(lessons, enrolments, issues), encoding="utf-8")
+    cfg = config.load(args.config)
+    Path(args.out).write_text(report.build(lessons, enrolments, issues, cfg), encoding="utf-8")
     print(f"Wrote {args.out}")
     return 0
 
@@ -53,6 +54,8 @@ def main(argv=None):
         s.add_argument("scourse", help="SCourse.txt")
         if name == "report":
             s.add_argument("-o", "--out", default="timetable.html")
+            s.add_argument("-c", "--config", default="config" if Path("config").is_dir() else None,
+                           help="folder with school.json and classnames.csv (default: ./config if present)")
         if name == "export":
             s.add_argument("-o", "--out-dir", default="out")
         s.set_defaults(fn=fn)

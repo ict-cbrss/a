@@ -47,6 +47,37 @@ New lessons copy their grid columns (TTable columns 7–9) from an existing
 lesson of the same class. Lessons can only be placed on days and periods
 that appear in the original file.
 
+### Print view
+
+The **Print** tab lays the timetable out like the A3 master timetable
+printouts: one sheet per main lesson block, rows are day × year, columns are
+the real periods (Main Lesson spans TASS P3+P4). Pick a year for a class
+timetable, or leave "All years" for the master. **Print** uses the browser's
+print dialog (A3 landscape); "Save as PDF" there gives a file. The sheet
+reflects any unsaved edits and says so in its footer.
+
+## School configuration (`config/`)
+
+`report` reads `config/` if it exists (`-c` to point elsewhere):
+
+- **school.json**: the cycle. `blocks` map TASS days to main lesson blocks
+  (days 1–5 = ML1, 6–10 = ML2, 11–15 = ML3), `weekdays` name the days within
+  a block, `periods` name the TASS period numbers and give their times (one
+  entry may cover several numbers), `year_order` is the print order.
+- **classnames.csv**: `code,name,block`. Display name for each TASS class
+  code; `block` is blank for all blocks, or a block number when the name
+  changes per block (main lessons). Names are Timetabler's own, from its
+  Class Details report; Year 11 is listed for terms that have it.
+- **curriculum.csv**: Timetabler's Class Details report as a table: per
+  year and line group, periods per cycle, doubles, class code and name,
+  student count, teacher, room, seats. Not used yet; it is the input the
+  line builder and solver will need.
+
+TASS period numbers map to the school day as: P2 Morning Circle 9:00 ·
+P3+P4 Main Lesson 9:10–10:40 · P5–P8 Periods 1–4 · P9 After School (Year 12).
+
+None of these files contain student data, so they are committed.
+
 ## File formats
 
 Both files are headerless, unquoted CSV with CRLF line endings.
@@ -94,5 +125,6 @@ sample export. Confirm them against the TASS import documentation.
 
 1. ✅ Read, check, view and re-export the TASS import files.
 2. ✅ Editing with live clash checks, then export.
+2b. ✅ Real day/period labels, class names, printable master and class timetables.
 3. Line builder: build elective lines from student subject choices.
 4. Solver (OR-Tools CP-SAT) to place classes in periods and rooms.

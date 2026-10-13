@@ -9,8 +9,9 @@ from . import formats
 TEMPLATE = Path(__file__).with_name("viewer.html")
 
 
-def build(lessons, enrolments, issues):
+def build(lessons, enrolments, issues, config=None):
     data = {
+        "config": config or {"names": []},
         "lessons": [asdict(l) for l in lessons],
         "students": sorted({(e.student_id, e.name, e.year) for e in enrolments},
                            key=lambda s: (s[2].zfill(3), s[1])),

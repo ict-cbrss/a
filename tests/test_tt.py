@@ -72,3 +72,28 @@ class ReportTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ConfigTests(unittest.TestCase):
+    def test_missing_directory_gives_defaults(self):
+        from tt import config
+        cfg = config.load(None)
+        self.assertEqual(cfg["blocks"], [])
+        self.assertEqual(cfg["names"], [])
+
+    def test_loads_school_and_names(self):
+        from tt import config
+        with tempfile.TemporaryDirectory() as d:
+            (Path(d) / "school.json").write_text('{"term": "T1", "blocks": [{"name": "B1", "short": "B1", "days": [1]}]}')
+            (Path(d) / "classnames.csv").write_text("code,name,block\nC07E_1,C7 English,\nC07ML_1,C7 Birthing,2\n")
+            cfg = config.load(d)
+        self.assertEqual(cfg["term"], "T1")
+        self.assertEqual(cfg["blocks"][0]["name"], "B1")
+        self.assertEqual(cfg["names"], [["C07E_1", "C7 English", None], ["C07ML_1", "C7 Birthing", 2]])
+
+    def test_repo_config_is_valid_and_names_every_fixture_class(self):
+        from tt import config
+        cfg = config.load(Path(__file__).resolve().parents[1] / "config")
+        self.assertEqual(len(cfg["blocks"]), 3)
+        self.assertEqual(sum(len(p["ids"]) for p in cfg["periods"]), 8)   # TASS periods 2-9
+        self.assertIn(["C07E_1", "C7 English", None], cfg["names"])

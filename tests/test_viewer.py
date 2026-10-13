@@ -26,8 +26,14 @@ class ViewerTests(unittest.TestCase):
         cls.enrolments = formats.read_enrolments(FIX / "SCourse.txt")
         cls.tmp = tempfile.TemporaryDirectory()
         cls.html = Path(cls.tmp.name) / "t.html"
+        cfg = {"term": "Term 4 2026", "weekdays": ["Mon", "Tue"],
+               "blocks": [{"name": "Main Lesson 1", "short": "ML1", "weeks": "Weeks 1-3", "days": [1]},
+                          {"name": "Main Lesson 2", "short": "ML2", "weeks": "Weeks 4-6", "days": [2]}],
+               "periods": [{"ids": [2], "name": "MC", "time": "9:00"}, {"ids": [3], "name": "Main Lesson", "time": "9:10 - 10:40"}],
+               "year_order": ["12", "8", "7"],
+               "names": [["C07E_1", "C7 English", None], ["C07MA_1", "C7 Maths ML1", 1], ["C07MA_1", "C7 Maths ML2", 2]]}
         cls.html.write_text(report.build(cls.lessons, cls.enrolments,
-                                         validate.check(cls.lessons, cls.enrolments)), encoding="utf-8")
+                                         validate.check(cls.lessons, cls.enrolments), cfg), encoding="utf-8")
         cls.pw = sync_playwright().start()
         exe = os.environ.get("PLAYWRIGHT_CHROMIUM")
         cls.browser = cls.pw.chromium.launch(executable_path=exe) if exe else cls.pw.chromium.launch()
@@ -76,7 +82,7 @@ class ViewerTests(unittest.TestCase):
         moved = [l for l in lessons if l.class_code == "C08E_1"]
         self.assertEqual([(l.day, l.period, l.teacher) for l in moved], [(2, 2, "AA")])
         self.page.click("#views button[data-v=Changes]")
-        self.assertIn("Moved C08E_1 from Day 1 P2 to Day 2 P2", self.page.inner_text("#changes"))
+        self.assertIn("Moved C08E_1 from ML1 Mon MC to ML2 Mon MC", self.page.inner_text("#changes"))
 
     def test_dialog_edits_room_and_teachers(self):
         self.page.click("#views button[data-v=Class]")
@@ -123,3 +129,28 @@ class ViewerTests(unittest.TestCase):
         self.page.click("#reset")
         self.page.reload()
         self.assertNotIn("Restored", self.page.inner_text("#note"))
+
+    def test_config_labels_and_block_names(self):
+        self.page.click("#views button[data-v=Class]")
+        self.page.select_option("#pick", "C07MA_1")
+        self.assertEqual(self.page.inner_text("#grid thead tr:first-child").split(), ["Main", "Lesson", "1", "Weeks", "1-3", "Main", "Lesson", "2", "Weeks", "4-6"])
+        self.assertIn("C7 Maths ML1", self.page.inner_text(".l[data-c=C07MA_1][data-d='1']"))
+        self.page.click("#views button[data-v=Issues]")
+        self.assertIn("ML1 Mon MC: Teacher AA has", self.page.inner_text("#issues"))
+
+    def test_print_view_master_and_single_year(self):
+        self.page.click("#views button[data-v=Print]")
+        sheets = self.page.locator(".sheet")
+        self.assertEqual(sheets.count(), 2)   # one per block
+        first = sheets.nth(0)
+        self.assertEqual(first.locator("h2").inner_text(), "TERM 4 2026 MASTER TIMETABLE — MAIN LESSON 1 (WEEKS 1-3)")
+        self.assertEqual([c.inner_text() for c in first.locator("td.yr").all()], ["12", "8", "7"])   # year_order
+        row7 = first.locator("tbody tr").nth(2)   # third year row = year 7; first row carries the day cell too
+        mc, ml = row7.locator("td").nth(1), row7.locator("td").nth(2)
+        self.assertIn("C7 English", mc.inner_text()); self.assertIn("G7 AA", mc.inner_text())
+        self.assertIn("C7 Maths ML1", ml.inner_text()); self.assertIn("G7 BB", ml.inner_text()); self.assertIn("G7 CC", ml.inner_text())
+        self.page.select_option("#print-year", "7")
+        self.page.select_option("#print-block", "2")
+        self.assertEqual(self.page.locator(".sheet").count(), 1)
+        self.assertEqual(self.page.locator(".sheet h2").inner_text(), "CLASS 7 TERM 4 2026 TIMETABLE — MAIN LESSON 2 WEEKS 4-6")
+        self.assertIn("C12D&T_1", self.page.content())   # unnamed codes fall back to the code
