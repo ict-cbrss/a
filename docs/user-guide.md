@@ -317,6 +317,18 @@ The **Files ▾** menu at the top right needs nothing but the page itself.
 
 Restoring a version or a backup is an ordinary edit: Undo takes you back.
 
+## Ask Gemini
+
+The **Ask Gemini** tab is a helper for the human-shaped questions; the
+checker and the solver still do the exact work. Paste your Google AI Studio
+key once (it stays in your browser), ask in plain words, or use the quick
+buttons: explain the issues, suggest fixes, who is free.
+
+When Gemini suggests moves, the page tests them first and shows each as ok
+or why it can't be done, with the error count before and after. **Apply**
+makes them one undoable edit. Student names are not sent unless you tick
+**Include student names**.
+
 ## Printing and PDFs
 
 The **Print** tab lays out the sheets the school is used to:

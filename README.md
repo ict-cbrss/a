@@ -84,6 +84,25 @@ config describes (or, without a config, any in the original file).
 
 Every edit, including these, goes through Undo/Redo and the Changes list.
 
+### Ask Gemini (helper)
+
+The **Ask Gemini** tab is a helper, not the calculator: the checker and
+solver stay the source of truth. Paste a Gemini API key from Google AI
+Studio (an `AIza…` key); it is kept in the browser's storage, never in the
+page file or the repo. The model defaults to a Flash-class model and can be
+changed; **List models** fetches the ones the key can use.
+
+Each question sends the timetable rows, the issues list and the teacher,
+room and class settings, using codes. Student names are withheld (issue
+text is redacted to student ids) unless **Include student names** is
+ticked. Gemini answers in words and, when it proposes changes, in a small
+JSON list of moves; the page tries those moves on a copy, shows each one as
+ok or why not, shows the error count before and after, and offers to apply
+the ones that check out. Applying is an ordinary undoable edit.
+
+Good uses: explaining why something is red and the options, finding a swap
+that frees a teacher or room, who is free when, drafting a note to staff.
+
 ### Print view
 
 The **Print** tab lays the timetable out like the A3 master timetable

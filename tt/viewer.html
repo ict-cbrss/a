@@ -182,6 +182,17 @@ ul.issues, ul.log { padding-left: 18px; }
 ul.issues li.error { color: var(--bad-fg); }
 ul.issues li.warning { color: var(--warn-fg); }
 .hidden { display: none; }
+#assistant { max-width: 900px; }
+#assistant .settings { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--head); margin-bottom: 12px; }
+#assistant .settings input[type=password] { width: 260px; }
+#assistant textarea { width: 100%; min-height: 70px; box-sizing: border-box; font: inherit; padding: 8px; border: 1px solid var(--line); border-radius: 6px; }
+#assistant .quick button { margin: 4px 4px 0 0; }
+.ai-msg { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin-top: 12px; white-space: pre-wrap; }
+.ai-msg.user { background: var(--head); }
+.ai-msg .who { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.ai-msg table { margin-top: 8px; white-space: normal; }
+.ai-msg .bad { color: #b00020; }
+.ai-msg.error { border-color: #b00020; }
 .members { display: grid; grid-template-columns: 1fr auto; gap: 6px; max-width: 640px; align-items: center; }
 .members select { min-width: 0; width: 100%; }
 dialog { border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--fg);
@@ -273,6 +284,24 @@ th small { color: var(--muted); font-weight: 400; font-size: 11px; display: bloc
 <div id="members"></div>
 <div id="issues" class="hidden"></div>
 <div id="changes" class="hidden"></div>
+<div id="assistant" class="hidden">
+  <div class="settings">
+    <label>Gemini API key <input type="password" id="ai-key" placeholder="AIza…" autocomplete="off"></label>
+    <label>Model <input id="ai-model" list="ai-models" style="width:200px"><datalist id="ai-models"></datalist></label>
+    <button type="button" id="ai-models-btn" title="Fetch the models this key can use">List models</button>
+    <label><input type="checkbox" id="ai-students"> Include student names</label>
+    <span id="ai-status" class="summary"></span>
+  </div>
+  <textarea id="ai-q" placeholder="Ask about the timetable: why is something red, what could move where, who is free when…"></textarea>
+  <div class="quick">
+    <button type="button" id="ai-ask" class="primary">Ask</button>
+    <button type="button" data-q="Explain each current issue in plain words and what my options are to fix it.">Explain the issues</button>
+    <button type="button" data-q="Suggest moves that remove the current errors without creating new clashes or breaking teacher availability. Give the moves as JSON.">Suggest fixes</button>
+    <button type="button" data-q="Which teachers and rooms are free on Day 1, period 5?">Who is free…</button>
+    <button type="button" id="ai-clear">Clear</button>
+  </div>
+  <div id="ai-log"></div>
+</div>
 <div id="duties" class="hidden">
   <div class="bar">
     <select id="duty-slot" aria-label="Time of day"></select>
@@ -749,11 +778,12 @@ const VIEWS = {
   Issues:  {},
   Changes: {},
   Print:   {},
+  Assistant: {},
 };
 let view = "Home";
 const NAV = [["", ["Home"]], ["Timetable", ["Teacher", "Room", "Class", "Year", "Student"]], ["Plan", ["Classes", "Construct", "Teachers", "Rooms", "Settings"]],
-             ["Yard duties", ["Duties"]], ["Review", ["Issues", "Changes", "Print"]]];
-const NAV_LABEL = {Classes: "Class plan", Teachers: "Teacher settings", Rooms: "Room settings", Settings: "Doubles", Duties: "Duty roster"};
+             ["Yard duties", ["Duties"]], ["Review", ["Issues", "Changes", "Print"]], ["Helper", ["Assistant"]]];
+const NAV_LABEL = {Classes: "Class plan", Teachers: "Teacher settings", Rooms: "Room settings", Settings: "Doubles", Duties: "Duty roster", Assistant: "Ask Gemini"};
 const $ = id => document.getElementById(id);
 
 function renderViews() {
@@ -830,7 +860,9 @@ function renderGrid() {
   $("room-settings").classList.toggle("hidden", view !== "Rooms");
   $("settings").classList.toggle("hidden", view !== "Settings");
   $("construct").classList.toggle("hidden", view !== "Construct");
+  $("assistant").classList.toggle("hidden", view !== "Assistant");
   $("info").textContent = "";
+  if (view === "Assistant") { renderAssistant(); return; }
   if (view === "Print") { renderPrint(); return; }
   if (view === "Duties") { renderDuties(); return; }
   if (view === "Teachers") { renderTeachers(); return; }
@@ -1550,6 +1582,127 @@ function downloadText(name, text, type = "text/plain") {
 const sortedLessons = () => state.lessons.slice().sort((a, b) => a.day - b.day || a.period - b.period);
 $("dl-ttable").addEventListener("click", () => download("TTable.txt", sortedLessons().map(l => LF.map(f => l[f]))));
 $("dl-scourse").addEventListener("click", () => download("SCourse.txt", state.enrolments.map(e => EF.map(f => e[f]))));
+
+// ---------- Gemini helper: explains, suggests; the checker verifies and apply() applies ----------
+const AI_KEY = "tt-gemini-key", AI_MODEL = "tt-gemini-model", AI_DEFAULT_MODEL = "gemini-2.5-flash";
+const aiHistory = [];   // {role: "user"|"model"|"error", text, moves?}
+const lsGet = (k, d = "") => { try { return localStorage.getItem(k) || d; } catch (e) { return d; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+function aiContext(withStudents) {
+  const periodNames = periods.map(p => `P${p}=${periodLabel(p)}`).join(", ");
+  const blocks = BLOCKS.map(b => `${b.short || b.name}: days ${b.days.join(",")}`).join("; ");
+  const lines = ["TIMETABLE ROWS (day:period class teacher room year):",
+    ...state.lessons.slice().sort((a, b) => a.day - b.day || a.period - b.period).map(l => `${l.day}:${l.period} ${l.class_code} ${l.teacher} ${l.room} ${l.year}`)];
+  const names = (CFG.names || []).filter(n => !n[2]).map(n => `${n[0]}=${n[1]}`);
+  const teachers = state.teachers.filter(t => t.away_days.length || (t.unavailable || []).length || t.max_consecutive || t.min_off_per_day)
+    .map(t => `${t.code}: ${t.away_days.length ? "away days " + t.away_days.join(",") : ""} ${(t.unavailable || []).length ? "unavailable " + t.unavailable.map(x => x.join(":")).join(",") : ""} ${t.max_consecutive ? "max consecutive " + t.max_consecutive : ""} ${t.min_off_per_day ? "min off/day " + t.min_off_per_day : ""}`.trim());
+  const rooms = state.rooms.filter(r => (r.unavailable || []).length).map(r => `${r.code}: unavailable ${r.unavailable.map(x => x.join(":")).join(",")}`);
+  const restricted = Object.entries(CFG.restricted_periods || {}).map(([p, ys]) => `P${p} only for years ${ys.join(",") || "none"}`);
+  const out = [`School: ${CFG.school || ""} ${CFG.term || ""}. Cycle of ${days.length} days (${blocks}); weekdays ${(CFG.weekdays || []).join(",")}.`,
+    `Periods: ${periodNames}. Doubles (consecutive period pairs): ${(state.doubles || []).map(d => d.join("-")).join(", ")}. ${restricted.join("; ")}`,
+    `Rules: a teacher, a room and a year group's students can each be in one place per slot; cross-year classes (E9/10…) run for Years 9 and 10 together; respect teacher away days and unavailable slots; Year 12 only may use P9.`,
+    names.length ? "CLASS NAMES: " + names.join("; ") : "",
+    teachers.length ? "TEACHER CONSTRAINTS: " + teachers.join("; ") : "",
+    rooms.length ? "ROOM CONSTRAINTS: " + rooms.join("; ") : "",
+    "CURRENT ISSUES: " + (issues.length ? issues.map(i => `[${i.severity}] ${i.day ? `day ${i.day}${i.period ? " P" + i.period : ""}: ` : ""}${withStudents ? i.message : redact(i.message)}`).join(" | ") : "none"),
+    ...lines];
+  if (withStudents) {
+    const byStudent = {};
+    for (const e of state.enrolments) (byStudent[e.student_id] = byStudent[e.student_id] || {name: e.name, year: e.year, classes: []}).classes.push(e.class_code);
+    out.push("STUDENTS (id name year: classes):", ...Object.entries(byStudent).map(([id, s]) => `${id} ${s.name} ${s.year}: ${s.classes.join(",")}`));
+  } else out.push(`STUDENTS: ${students().length} students enrolled (names withheld; tick "Include student names" to send them). Class sizes: ` +
+    allClasses().map(c => `${c}=${classCount(c)}`).join(", "));
+  return out.filter(Boolean).join("\n");
+}
+// Issue messages name students as "Name (id)"; without consent only the id goes out.
+function redact(msg) { let out = msg; for (const st of students()) out = out.split(`${st.name} (${st.student_id})`).join(`student ${st.student_id}`); return out; }
+const AI_SYSTEM = `You help a school's timetable coordinator with a 15-day cycle timetable. Answer briefly and concretely, using the exact class, teacher and room codes from the data. Period numbers are TASS numbers (P1..P9); say the period name too.
+Never invent classes, teachers or rooms. The page has an exact clash checker, so when you suggest changes to the timetable, also give them as a JSON block the page can verify and apply:
+\`\`\`json
+{"moves": [{"class": "C07E_1", "from": [1, 5], "to": [2, 6], "room": "G7"}]}
+\`\`\`
+"from" and "to" are [day, period]; "room" and "teacher" are optional (same slot in from and to means a room or teacher change only). Moving a class moves every teacher row it has in that slot. At most 10 moves; say what each fixes.`;
+
+async function aiFetch(url, body) {
+  const r = await fetch(url, body ? {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)} : undefined);
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error((j.error && j.error.message) || `HTTP ${r.status}`);
+  return j;
+}
+function parseMoves(text) {
+  const m = text.match(/```json\s*([\s\S]*?)```/i) || text.match(/(\{[\s\S]*"moves"[\s\S]*\})/);
+  if (!m) return null;
+  try { const j = JSON.parse(m[1]); return Array.isArray(j.moves) ? j.moves : null; } catch (e) { return null; }
+}
+// Try the moves on a copy: each becomes {ok, why}; the copy's issues give the after count.
+function previewMoves(moves) {
+  const s = clone(state), results = [];
+  for (const mv of moves) {
+    const from = mv.from || [], to = mv.to || from, cls = mv.class;
+    const rows = s.lessons.filter(l => l.class_code === cls && l.day === from[0] && l.period === from[1]);
+    if (!rows.length) { results.push({ok: false, why: `${cls} has no lesson on day ${from[0]} P${from[1]}`}); continue; }
+    if ((to[0] !== from[0] || to[1] !== from[1]) && s.lessons.some(l => l.class_code === cls && l.day === to[0] && l.period === to[1])) { results.push({ok: false, why: `${cls} already has a lesson on day ${to[0]} P${to[1]}`}); continue; }
+    if (!days.includes(to[0]) || !periods.includes(to[1])) { results.push({ok: false, why: `day ${to[0]} P${to[1]} is not in the cycle`}); continue; }
+    for (const l of rows) { l.day = to[0]; l.period = to[1]; if (mv.room) l.room = mv.room; if (mv.teacher && rows.length === 1) l.teacher = mv.teacher; }
+    results.push({ok: true});
+  }
+  const after = check(s), errsNow = issues.filter(i => i.severity === "error").length, errsAfter = after.filter(i => i.severity === "error").length;
+  return {results, state: s, errsNow, errsAfter, after};
+}
+function applyMoves(moves) {
+  const pv = previewMoves(moves);
+  const good = moves.filter((m, i) => pv.results[i].ok);
+  if (!good.length) return alert("None of the suggested moves can be applied.");
+  apply(`Applied Gemini's suggestion: ${good.map(m => `${m.class} ${m.from.join(":")}→${(m.to || m.from).join(":")}${m.room ? " " + m.room : ""}`).join(", ")}`,
+    s => { Object.assign(s, pv.state); });
+}
+function renderAssistant() {
+  $("ai-key").value = lsGet(AI_KEY); $("ai-model").value = lsGet(AI_MODEL, AI_DEFAULT_MODEL);
+  $("ai-log").innerHTML = aiHistory.length ? aiHistory.map((m, i) => {
+    let html = `<div class="ai-msg ${m.role === "user" ? "user" : m.role === "error" ? "error" : ""}"><div class="who">${m.role === "user" ? "You" : m.role === "error" ? "Error" : "Gemini"}</div>${esc(m.text)}`;
+    if (m.moves) {
+      const pv = previewMoves(m.moves);
+      html += `<table><tr><th>Class</th><th>From</th><th>To</th><th>Room</th><th>Check</th></tr>` + m.moves.map((mv, j) =>
+        `<tr><td>${esc(mv.class)}</td><td>${esc(dayPeriodLabel(...(mv.from || [])))}</td><td>${esc(dayPeriodLabel(...(mv.to || mv.from || [])))}</td><td>${esc(mv.room || "")}${mv.teacher ? " / " + esc(mv.teacher) : ""}</td><td class="${pv.results[j].ok ? "" : "bad"}">${pv.results[j].ok ? "ok" : esc(pv.results[j].why)}</td></tr>`).join("") + `</table>` +
+        `<p>Errors now ${pv.errsNow} → after these moves ${pv.errsAfter}${pv.errsAfter > pv.errsNow ? " (worse)" : ""}. <button type="button" class="primary" data-ai-apply="${i}">Apply the ${pv.results.filter(r => r.ok).length} that check out</button></p>`;
+    }
+    return html + "</div>";
+  }).join("") : `<p class="note">Gemini sees the timetable rows, the issues list and the settings, with teacher, room and class codes. Student names are not sent unless you tick the box. Its suggestions are checked here before you apply them, and applying is an undoable edit like any other.</p>`;
+}
+async function askGemini(q) {
+  const key = $("ai-key").value.trim(), model = $("ai-model").value.trim() || AI_DEFAULT_MODEL;
+  if (!key) return alert("Paste your Gemini API key first (kept in this browser only).");
+  lsSet(AI_KEY, key); lsSet(AI_MODEL, model);
+  aiHistory.push({role: "user", text: q}); renderAssistant();
+  $("ai-status").textContent = "Asking…"; $("ai-ask").disabled = true;
+  try {
+    const contents = aiHistory.filter(m => m.role !== "error").map((m, i, arr) =>
+      ({role: m.role, parts: [{text: i === arr.length - 1 ? `DATA\n${aiContext($("ai-students").checked)}\n\nQUESTION\n${m.text}` : m.text}]}));
+    const j = await aiFetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`,
+      {system_instruction: {parts: [{text: AI_SYSTEM}]}, contents});
+    const text = ((j.candidates || [])[0] || {}).content ? j.candidates[0].content.parts.map(p => p.text || "").join("") : "(no answer)";
+    aiHistory.push({role: "model", text, moves: parseMoves(text)});
+  } catch (e) { aiHistory.push({role: "error", text: e.message}); }
+  $("ai-status").textContent = ""; $("ai-ask").disabled = false; renderAssistant();
+}
+$("assistant").addEventListener("click", async e => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.id === "ai-ask") { const q = $("ai-q").value.trim(); if (q) { $("ai-q").value = ""; askGemini(q); } }
+  else if (b.dataset.q) { $("ai-q").value = b.dataset.q; askGemini(b.dataset.q); $("ai-q").value = ""; }
+  else if (b.id === "ai-clear") { aiHistory.length = 0; renderAssistant(); }
+  else if (b.dataset.aiApply !== undefined) applyMoves(aiHistory[Number(b.dataset.aiApply)].moves);
+  else if (b.id === "ai-models-btn") {
+    const key = $("ai-key").value.trim(); if (!key) return alert("Paste your Gemini API key first.");
+    lsSet(AI_KEY, key); $("ai-status").textContent = "Fetching models…";
+    try {
+      const j = await aiFetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(key)}&pageSize=200`);
+      const ms = (j.models || []).filter(m => (m.supportedGenerationMethods || []).includes("generateContent")).map(m => m.name.replace(/^models\//, "")).sort(natural);
+      $("ai-models").innerHTML = ms.map(m => `<option value="${esc(m)}">`).join("");
+      $("ai-status").textContent = `${ms.length} models; pick one in the Model box.`;
+    } catch (err) { $("ai-status").textContent = `Could not list models: ${err.message}`; }
+  }
+});
+$("ai-q").addEventListener("keydown", e => { if ((e.ctrlKey || e.metaKey) && e.key === "Enter") $("ai-ask").click(); });
 
 // ---------- files: open TASS files, add students, versions, backups, save as ----------
 const stamp = () => new Date().toISOString().slice(0, 16).replace("T", " ");

@@ -241,6 +241,59 @@ class ViewerTests(unittest.TestCase):
         self.assertEqual(page2.inner_text("#app-sub"), "Term 4 2026")
         self.assertEqual(len(page2.query_selector_all("#views button")), len(self.page.query_selector_all("#views button")))
 
+    def test_gemini_helper_verifies_and_applies_suggested_moves(self):
+        import json
+        calls = []
+        reply = ("Move Year 7 English off the AA/G7 clash.\n```json\n"
+                 '{"moves": [{"class": "C07E_1", "from": [1, 2], "to": [2, 3]}, {"class": "C07MA_1", "from": [2, 2], "to": [2, 3]}]}\n```')
+
+        def handle(route, request):
+            calls.append(request)
+            if request.method == "GET":   # model list
+                route.fulfill(json={"models": [{"name": "models/gemini-2.5-flash", "supportedGenerationMethods": ["generateContent"]},
+                                               {"name": "models/embedding-001", "supportedGenerationMethods": ["embedContent"]}]})
+            elif "bad-key" in request.url:
+                route.fulfill(status=400, json={"error": {"message": "API key not valid"}})
+            else:
+                route.fulfill(json={"candidates": [{"content": {"parts": [{"text": reply}]}}]})
+        self.page.route("https://generativelanguage.googleapis.com/**", handle)
+        self.page.click("#views button[data-v=Assistant]")
+        self.assertEqual(self.page.input_value("#ai-model"), "gemini-2.5-flash")
+        self.page.fill("#ai-key", "bad-key")
+        self.page.click("#ai-models-btn")
+        self.page.wait_for_function("document.getElementById('ai-status').textContent.includes('1 models')")
+        self.page.fill("#ai-q", "hello")
+        self.page.click("#ai-ask")
+        self.page.wait_for_selector(".ai-msg.error")
+        self.assertIn("API key not valid", self.page.inner_text(".ai-msg.error"))
+        self.page.fill("#ai-key", "AIza-test")
+        self.page.click("#assistant button[data-q]")   # "Explain the issues"
+        self.page.wait_for_selector("button[data-ai-apply]")
+        body = json.loads(calls[-1].post_data)
+        text = body["contents"][-1]["parts"][0]["text"]
+        self.assertIn("1:2 C07E_1 AA G7 7", text)
+        self.assertIn("CURRENT ISSUES: [error]", text)
+        self.assertNotIn("Test Student One", text)               # names withheld by default
+        self.assertIn("names withheld", text)
+        self.assertIn("gemini-2.5-flash:generateContent?key=AIza-test", calls[-1].url)
+        self.assertIn("Errors now 4 → after these moves 2", self.page.inner_text("#ai-log"))
+        self.assertIn("C07MA_1 has no lesson on day 2 P2", self.page.inner_text("#ai-log"))
+        self.page.click("button[data-ai-apply]")
+        self.assertIn("2 errors", self.issues_button())
+        tt = formats.read_timetable(self.download("#dl-ttable"))
+        self.assertEqual([(l.day, l.period) for l in tt if l.class_code == "C07E_1"], [(2, 3)])
+        self.page.click("#undo")
+        self.assertIn("4 errors", self.issues_button())
+        # The key and model survive a reload; names are sent only when ticked.
+        self.page.reload()
+        self.page.click("#views button[data-v=Assistant]")
+        self.assertEqual(self.page.input_value("#ai-key"), "AIza-test")
+        self.page.check("#ai-students")
+        self.page.fill("#ai-q", "who?")
+        self.page.click("#ai-ask")
+        self.page.wait_for_selector("button[data-ai-apply]")
+        self.assertIn("900001 Test Student One 7:", json.loads(calls[-1].post_data)["contents"][-1]["parts"][0]["text"])
+
     def test_edits_survive_reload_and_reset_clears_them(self):
         self.page.click("#views button[data-v=Student]")
         self.page.select_option("#pick", "900002")
