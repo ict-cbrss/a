@@ -161,18 +161,18 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", 
 const natural = (a, b) => String(a).localeCompare(String(b), undefined, {numeric: true});
 const slotKey = (d, p) => `${d},${p}`;
 
-// Days and periods come from the original file; new lessons can only use these.
-const days = [...new Set(ORIGINAL.lessons.map(l => l.day))].sort((a, b) => a - b);
-const periods = [...new Set(ORIGINAL.lessons.map(l => l.period))].sort((a, b) => a - b);
-
 // ---------- school config: blocks, weekdays, period names, class names ----------
 const CFG = DATA.config || {};
 const BLOCKS = (CFG.blocks || []).map((b, i) => ({...b, n: i + 1}));
+// Days and periods: everything the config describes plus anything in the file, so a
+// period the file doesn't use yet (e.g. a morning class, P1) can still be added.
+const days = [...new Set([...BLOCKS.flatMap(b => b.days), ...ORIGINAL.lessons.map(l => l.day)])].sort((a, b) => a - b);
+const periods = [...new Set([...(CFG.periods || []).flatMap(p => p.ids), ...ORIGINAL.lessons.map(l => l.period)])].sort((a, b) => a - b);
 const blockOf = d => BLOCKS.find(b => b.days.includes(d));
 const weekdayOf = d => { const b = blockOf(d); return b ? (CFG.weekdays || [])[b.days.indexOf(d)] || `Day ${d}` : `Day ${d}`; };
 const dayLabel = d => { const b = blockOf(d); return b && BLOCKS.length > 1 ? `${b.short} ${weekdayOf(d)}` : weekdayOf(d); };
 // Period groups: a config period may span several TASS period numbers (Main Lesson = P3+P4).
-const PGROUPS = (CFG.periods || []).filter(p => p.ids.some(id => periods.includes(id)));
+const PGROUPS = CFG.periods || [];
 const pgroupOf = p => PGROUPS.find(g => g.ids.includes(p));
 const periodLabel = p => { const g = pgroupOf(p); return g ? g.name + (g.ids.length > 1 ? ` (P${p})` : "") : `P${p}`; };
 const periodTime = p => { const g = pgroupOf(p); return g ? g.time : ""; };

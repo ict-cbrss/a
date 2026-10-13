@@ -8,6 +8,7 @@
     {"name": "Main Lesson 3", "short": "ML3", "weeks": "Weeks 7-10", "days": [11, 12, 13, 14, 15]}
   ],
   "periods": [
+    {"ids": [1], "name": "Morning Class", "time": "before 9:00"},
     {"ids": [2], "name": "MC", "time": "9:00"},
     {"ids": [3, 4], "name": "Main Lesson", "time": "9:10 - 10:40"},
     {"ids": [5], "name": "Period 1", "time": "11:00 - 11:45"},

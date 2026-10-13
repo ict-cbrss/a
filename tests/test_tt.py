@@ -95,5 +95,5 @@ class ConfigTests(unittest.TestCase):
         from tt import config
         cfg = config.load(Path(__file__).resolve().parents[1] / "config")
         self.assertEqual(len(cfg["blocks"]), 3)
-        self.assertEqual(sum(len(p["ids"]) for p in cfg["periods"]), 8)   # TASS periods 2-9
+        self.assertEqual(sorted(i for p in cfg["periods"] for i in p["ids"]), list(range(1, 10)))   # TASS periods 1-9
         self.assertIn(["C07E_1", "C7 English", None], cfg["names"])

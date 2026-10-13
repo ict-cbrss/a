@@ -44,8 +44,8 @@ list of your changes. Clashing cells are red.
   import format. With no edits they are byte-identical to the originals.
 
 New lessons copy their grid columns (TTable columns 7–9) from an existing
-lesson of the same class. Lessons can only be placed on days and periods
-that appear in the original file.
+lesson of the same class. Lessons can be placed on any day or period the
+config describes (or, without a config, any in the original file).
 
 ### Print view
 
@@ -73,8 +73,9 @@ reflects any unsaved edits and says so in its footer.
   student count, teacher, room, seats. Not used yet; it is the input the
   line builder and solver will need.
 
-TASS period numbers map to the school day as: P2 Morning Circle 9:00 ·
-P3+P4 Main Lesson 9:10–10:40 · P5–P8 Periods 1–4 · P9 After School (Year 12).
+TASS period numbers map to the school day as: P1 Morning Class (before MC,
+used some days) · P2 Morning Circle 9:00 · P3+P4 Main Lesson 9:10–10:40 ·
+P5–P8 Periods 1–4 · P9 After School (Year 12).
 
 None of these files contain student data, so they are committed.
 
