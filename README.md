@@ -65,8 +65,9 @@ config describes (or, without a config, any in the original file).
   computer, and the Student view and student-clash check work; the student
   data stays in your browser and only leaves it through Export SCourse.txt.
 - **Add students from a TASS list** reads a CSV with a header row naming a
-  student code, a name (or surname and given names) and a year column, as
-  TASS's student export does. Each new student is enrolled in the classes
+  student code, a name (or surname and preferred/given name) and a year
+  column; TASS's export (Code, Surname, Preferred Name, Year, email) fits
+  as it comes. Each new student is enrolled in the classes
   that three quarters or more of their year already take; a year with no
   students yet (the new Year 7) gets every class of that year, so remove the
   half-year groups they are not in from the Student view. Students already

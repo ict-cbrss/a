@@ -185,11 +185,17 @@ class ViewerTests(unittest.TestCase):
         enr = formats.read_enrolments(self.download("#dl-scourse"))
         self.assertEqual([(e.name, e.year, e.class_code, e.form) for e in enr if e.student_id == "900009"],
                          [("Kid New", "7", "C07E_1", "7"), ("Kid New", "7", "C07MA_1", "7"), ("Kid New", "7", "C07Sc_1", "7")])
+        # TASS's own student export headers: Code, Surname, Preferred Name, Year, email.
+        (tmp / "tass.csv").write_text("Code,Surname,Preferred Name,Year,email\n900010,Smith,Jo,7,jo@school\n")
+        msg = self.choose_file("#file-menu button[data-load=students]", tmp / "tass.csv", dialog=True)
+        self.assertEqual(msg, "1 students added from tass.csv.")
+        enr = formats.read_enrolments(self.download("#dl-scourse"))
+        self.assertEqual({(e.name, e.year) for e in enr if e.student_id == "900010"}, {("Jo Smith", "7")})
         # A bad file is reported, not applied.
         (tmp / "bad.txt").write_text("1,2,3\n")
         msg = self.choose_file("#file-menu button[data-load=ttable]", tmp / "bad.txt", dialog=True)
         self.assertIn("line 1 has 3 fields, expected 9", msg)
-        self.assertIn("3 unsaved edits", self.page.inner_text("#chip-edits"))
+        self.assertIn("4 unsaved edits", self.page.inner_text("#chip-edits"))
 
     def test_versions_backup_and_save_as_copy(self):
         tmp = Path(self.tmp.name)
