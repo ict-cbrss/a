@@ -1,21 +1,142 @@
 {
   "school": "Cape Byron Rudolf Steiner School",
   "term": "Term 4 2026",
-  "weekdays": ["Mon", "Tue", "Wed", "Thur", "Fri"],
+  "weekdays": [
+    "Mon",
+    "Tue",
+    "Wed",
+    "Thur",
+    "Fri"
+  ],
   "blocks": [
-    {"name": "Main Lesson 1", "short": "ML1", "weeks": "Weeks 1-3", "days": [1, 2, 3, 4, 5]},
-    {"name": "Main Lesson 2", "short": "ML2", "weeks": "Weeks 4-6", "days": [6, 7, 8, 9, 10]},
-    {"name": "Main Lesson 3", "short": "ML3", "weeks": "Weeks 7-10", "days": [11, 12, 13, 14, 15]}
+    {
+      "name": "Main Lesson 1",
+      "short": "ML1",
+      "weeks": "Weeks 1-3",
+      "days": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    },
+    {
+      "name": "Main Lesson 2",
+      "short": "ML2",
+      "weeks": "Weeks 4-6",
+      "days": [
+        6,
+        7,
+        8,
+        9,
+        10
+      ]
+    },
+    {
+      "name": "Main Lesson 3",
+      "short": "ML3",
+      "weeks": "Weeks 7-10",
+      "days": [
+        11,
+        12,
+        13,
+        14,
+        15
+      ]
+    }
   ],
   "periods": [
-    {"ids": [1], "name": "Morning Class", "time": "before 9:00"},
-    {"ids": [2], "name": "MC", "time": "9:00"},
-    {"ids": [3, 4], "name": "Main Lesson", "time": "9:10 - 10:40"},
-    {"ids": [5], "name": "Period 1", "time": "11:00 - 11:45"},
-    {"ids": [6], "name": "Period 2", "time": "11:45 - 12:30"},
-    {"ids": [7], "name": "Period 3", "time": "12:30 - 1:15"},
-    {"ids": [8], "name": "Period 4", "time": "1:50 - 2:50"},
-    {"ids": [9], "name": "Period 5 After School", "time": "3:00 - 5:00"}
+    {
+      "ids": [
+        1
+      ],
+      "name": "Morning Class",
+      "time": "before 9:00"
+    },
+    {
+      "ids": [
+        2
+      ],
+      "name": "MC",
+      "time": "9:00"
+    },
+    {
+      "ids": [
+        3,
+        4
+      ],
+      "name": "Main Lesson",
+      "time": "9:10 - 10:40"
+    },
+    {
+      "ids": [
+        5
+      ],
+      "name": "Period 1",
+      "time": "11:00 - 11:45"
+    },
+    {
+      "ids": [
+        6
+      ],
+      "name": "Period 2",
+      "time": "11:45 - 12:30"
+    },
+    {
+      "ids": [
+        7
+      ],
+      "name": "Period 3",
+      "time": "12:30 - 1:15"
+    },
+    {
+      "ids": [
+        8
+      ],
+      "name": "Period 4",
+      "time": "1:50 - 2:50"
+    },
+    {
+      "ids": [
+        9
+      ],
+      "name": "Period 5 After School",
+      "time": "3:00 - 5:00"
+    }
   ],
-  "year_order": ["12", "11", "10", "9", "8", "7"]
+  "year_order": [
+    "12",
+    "11",
+    "10",
+    "9",
+    "8",
+    "7"
+  ],
+  "duty_slots": [
+    {
+      "name": "Before School",
+      "conflicts": [
+        1
+      ]
+    },
+    {
+      "name": "Recess",
+      "conflicts": []
+    },
+    {
+      "name": "Lunch 1",
+      "conflicts": []
+    },
+    {
+      "name": "Lunch 2",
+      "conflicts": []
+    },
+    {
+      "name": "After School",
+      "conflicts": [
+        9
+      ]
+    }
+  ]
 }

@@ -51,6 +51,19 @@ td.over { background: var(--drop); }
 .l b { display: block; }
 td.clash .l { background: var(--bad); color: var(--bad-fg); }
 .l.duty { background: var(--head); color: var(--fg); cursor: default; }
+#duties td { padding: 2px; }
+#duties select { min-width: 0; width: 100%; padding: 3px 4px; font-size: 12px; }
+#duties td.empty select { border-color: var(--warn-fg); }
+#duties td.clash select { border-color: var(--bad-fg); background: var(--bad); color: var(--bad-fg); }
+#duties th.slot { text-align: left; }
+#duties button.x { padding: 0 5px; font-size: 11px; line-height: 1.4; margin-left: 4px; }
+.side { display: grid; grid-template-columns: 1fr 240px; gap: 16px; align-items: start; }
+.side .wrap { min-width: 0; }
+.loads { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.loads table { font-size: 12px; }
+.loads td.n { text-align: right; }
+.loads tr.unavail td { color: var(--muted); }
+@media (max-width: 900px) { .side { grid-template-columns: 1fr; } }
 ul.issues, ul.log { padding-left: 18px; }
 ul.issues li.error { color: var(--bad-fg); }
 ul.issues li.warning { color: var(--warn-fg); }
@@ -112,6 +125,22 @@ th small { color: var(--muted); font-weight: 400; font-size: 11px; display: bloc
 <div id="members"></div>
 <div id="issues" class="hidden"></div>
 <div id="changes" class="hidden"></div>
+<div id="duties" class="hidden">
+  <div class="bar">
+    <select id="duty-slot" aria-label="Time of day"></select>
+    <input id="duty-name" list="dutynames" placeholder="New duty name" autocomplete="off" style="width:180px">
+    <button type="button" id="duty-add">Add duty</button>
+    <span class="spacer"></span>
+    <button type="button" id="duty-auto">Auto-fill empty duties</button>
+    <button type="button" class="primary" id="dl-duties">Download duties.csv</button>
+  </div>
+  <p class="note">Pick a teacher for each duty. Red = that teacher already has a duty or a lesson at that time, or is away that day. Orange = unassigned. Loads on the right count duties per cycle.</p>
+  <div class="side">
+    <div class="wrap"><table id="duty-grid"></table></div>
+    <div class="loads"><table id="duty-loads"></table></div>
+  </div>
+</div>
+<datalist id="dutynames"></datalist>
 <div id="print" class="hidden">
   <div class="bar noprint">
     <select id="print-block" aria-label="Block"></select>
@@ -157,8 +186,11 @@ const toObj = (fields, row) => Object.fromEntries(fields.map((f, i) => [f, row[i
 const ORIGINAL = {
   lessons: DATA.lessons,
   enrolments: DATA.enrolments.map(r => toObj(EF, r)),
+  duties: ((DATA.config || {}).duties || []).map(d => ({day: d[0], slot: d[1], duty: d[2], teacher: d[3]})),
+  dutyDefs: [],   // [slot, duty] rows added in the builder that have no assignment yet
 };
-const clone = s => ({ lessons: s.lessons.map(l => ({...l})), enrolments: s.enrolments.map(e => ({...e})) });
+const clone = s => ({ lessons: s.lessons.map(l => ({...l})), enrolments: s.enrolments.map(e => ({...e})),
+  duties: (s.duties || []).map(d => ({...d})), dutyDefs: (s.dutyDefs || []).map(d => d.slice()) });
 const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
 const natural = (a, b) => String(a).localeCompare(String(b), undefined, {numeric: true});
 const slotKey = (d, p) => `${d},${p}`;
@@ -189,9 +221,74 @@ function className(code, d) {
   const b = blockOf(d);
   return (b && e.byBlock[b.n]) || e.all || Object.values(e.byBlock)[0] || code;
 }
-const DUTIES = CFG.duties || [];            // [day, slot, duty, teacher]
-const DUTY_SLOTS = [...new Set(DUTIES.map(d => d[1]))];
-const dutiesAt = (d, slot, who) => DUTIES.filter(x => x[0] === d && x[1] === slot && (!who || x[3] === who));
+// Times of day a duty can fall in; `conflicts` are TASS periods a teacher can't be teaching in at that time.
+const DUTY_SLOTS_CFG = CFG.duty_slots || [...new Set((CFG.duties || []).map(d => d[1]))].map(name => ({name, conflicts: []}));
+const DUTY_SLOTS = DUTY_SLOTS_CFG.map(x => x.name);
+const slotConflicts = slot => (DUTY_SLOTS_CFG.find(x => x.name === slot) || {}).conflicts || [];
+const UNAVAILABLE = new Set((CFG.unavailable || []).map(([d, t]) => `${d}|${t}`));
+const isAway = (d, t) => UNAVAILABLE.has(`${d}|${t}`);
+const dutiesAt = (d, slot, who) => state.duties.filter(x => x.day === d && x.slot === slot && (!who || x.teacher === who));
+const hasDuties = () => state.duties.length > 0 || state.dutyDefs.length > 0;
+// Every (slot, duty) row that exists anywhere in the cycle, in slot order.
+function dutyRows() {
+  const seen = new Map();
+  for (const d of state.duties) seen.set(d.slot + "\u0000" + d.duty, [d.slot, d.duty]);
+  for (const [slot, duty] of state.dutyDefs) seen.set(slot + "\u0000" + duty, [slot, duty]);
+  return [...seen.values()].sort((a, b) => DUTY_SLOTS.indexOf(a[0]) - DUTY_SLOTS.indexOf(b[0]) || natural(a[1], b[1]));
+}
+function allTeachers() {
+  return [...new Set([...state.lessons.map(l => l.teacher), ...state.duties.map(d => d.teacher), ...(CFG.unavailable || []).map(u => u[1])])].filter(Boolean).sort(natural);
+}
+// Why a teacher can't take a duty on a day, or null if they can.
+function dutyProblem(d, slot, duty, t) {
+  if (!t) return null;
+  if (isAway(d, t)) return `${t} is away on ${dayLabel(d)}`;
+  const other = state.duties.find(x => x.day === d && x.slot === slot && x.teacher === t && x.duty !== duty);
+  if (other) return `${t} already has ${other.duty} at ${slot} on ${dayLabel(d)}`;
+  const lesson = state.lessons.find(l => l.day === d && l.teacher === t && slotConflicts(slot).includes(l.period));
+  if (lesson) return `${t} teaches ${className(lesson.class_code, d)} at ${periodLabel(lesson.period)} on ${dayLabel(d)}`;
+  return null;
+}
+function setDuty(d, slot, duty, t) {
+  const cur = state.duties.find(x => x.day === d && x.slot === slot && x.duty === duty);
+  if ((cur ? cur.teacher : "") === t) return;
+  apply(`${t ? `Gave ${duty} on ${dayLabel(d)} to ${t}` : `Cleared ${duty} on ${dayLabel(d)}`}${cur ? ` (was ${cur.teacher})` : ""}`, s => {
+    s.duties = s.duties.filter(x => !(x.day === d && x.slot === slot && x.duty === duty));
+    if (t) s.duties.push({day: d, slot, duty, teacher: t});
+    if (!t && !s.dutyDefs.some(x => x[0] === slot && x[1] === duty)) s.dutyDefs.push([slot, duty]);
+  });
+}
+function removeDuty(slot, duty) {
+  const n = state.duties.filter(x => x.slot === slot && x.duty === duty).length;
+  if (!confirm(`Remove ${duty} (${slot}) from every day? ${n} assignment${n === 1 ? "" : "s"} will be cleared.`)) return;
+  apply(`Removed duty ${duty} at ${slot}`, s => {
+    s.duties = s.duties.filter(x => !(x.slot === slot && x.duty === duty));
+    s.dutyDefs = s.dutyDefs.filter(x => !(x[0] === slot && x[1] === duty));
+  });
+}
+function addDutyDef(slot, duty) {
+  if (!slot || !duty) return alert("Choose a time of day and type a duty name.");
+  if (dutyRows().some(r => r[0] === slot && r[1] === duty)) return alert(`${duty} already exists at ${slot}.`);
+  apply(`Added duty ${duty} at ${slot}`, s => { s.dutyDefs.push([slot, duty]); });
+}
+// Fill every empty duty with the free teacher who has the fewest duties so far.
+function autoFill() {
+  const teachers = allTeachers();
+  apply("Auto-filled empty duties", s => {
+    const count = t => s.duties.filter(x => x.teacher === t).length;
+    let n = 0;
+    for (const [slot, duty] of dutyRows()) for (const d of days) {
+      if (s.duties.some(x => x.day === d && x.slot === slot && x.duty === duty)) continue;
+      const free = teachers.filter(t => !isAway(d, t)
+        && !s.duties.some(x => x.day === d && x.slot === slot && x.teacher === t)
+        && !s.lessons.some(l => l.day === d && l.teacher === t && slotConflicts(slot).includes(l.period)));
+      if (!free.length) continue;
+      free.sort((a, b) => count(a) - count(b) || natural(a, b));
+      s.duties.push({day: d, slot, duty, teacher: free[0]}); n++;
+    }
+    if (!n) return "No empty duties to fill.";
+  });
+}
 const yearSort = (a, b) => { const o = CFG.year_order || []; const ia = o.indexOf(a), ib = o.indexOf(b);
   return (ia < 0 ? 1 : 0) - (ib < 0 ? 1 : 0) || ia - ib || natural(a, b); };
 
@@ -205,7 +302,11 @@ function save() {
 function restore() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORE_KEY));
-    if (saved && saved.log.length) { state = saved.state; log = saved.log; return true; }
+    if (saved && saved.log.length) {
+      state = saved.state; log = saved.log;
+      if (!state.duties) { state.duties = clone(ORIGINAL).duties; state.dutyDefs = []; }   // saved before duties were editable
+      return true;
+    }
   } catch (e) {}
   return false;
 }
@@ -290,6 +391,14 @@ function addEnrolment(sid, cls) {
 }
 
 // ---------- validation (mirrors tt/validate.py) ----------
+function dutyProblemIn(s, d, slot, duty, t) {
+  if (isAway(d, t)) return `${t} is away`;
+  const other = s.duties.find(x => x.day === d && x.slot === slot && x.teacher === t && x.duty !== duty);
+  if (other) return `${t} also has ${other.duty}`;
+  const lesson = s.lessons.find(l => l.day === d && l.teacher === t && slotConflicts(slot).includes(l.period));
+  if (lesson) return `${t} teaches ${className(lesson.class_code, d)} at ${periodLabel(lesson.period)}`;
+  return null;
+}
 function check(s) {
   const issues = [];
   const slotClash = (key, kind, label) => {
@@ -319,6 +428,10 @@ function check(s) {
       issues.push({severity: "error", kind: "student-clash", day: d, period: p, message: `${studentLabel(sid)} has ${[...cc].sort().join(", ")}`});
     }
   }
+  for (const x of s.duties) {
+    const why = dutyProblemIn(s, x.day, x.slot, x.duty, x.teacher);
+    if (why) issues.push({severity: "error", kind: "duty-clash", day: x.day, message: `${x.duty}: ${why}`});
+  }
   const enrolled = new Set(s.enrolments.map(e => e.class_code));
   for (const c of [...slots.keys()].sort()) if (!enrolled.has(c))
     issues.push({severity: "warning", kind: "empty-class", message: `${c} is timetabled but has no students`});
@@ -345,6 +458,7 @@ const VIEWS = {
   Year:    { opts: () => uniq("year"), label: y => `Year ${y}`, match: (l, y) => l.year === y },
   Student: { opts: () => students().map(s => s.student_id), label: id => { const s = students().find(s => s.student_id === id); return `${s.name} (Yr ${s.year}, ${id})`; },
              match: (l, id) => classesOf(id).has(l.class_code), clash: true },
+  Duties:  {},
   Issues:  {},
   Changes: {},
   Print:   {},
@@ -376,11 +490,13 @@ function renderGrid() {
   $("issues").classList.toggle("hidden", view !== "Issues");
   $("changes").classList.toggle("hidden", view !== "Changes");
   $("print").classList.toggle("hidden", view !== "Print");
+  $("duties").classList.toggle("hidden", view !== "Duties");
   $("info").textContent = "";
   if (view === "Print") { renderPrint(); return; }
+  if (view === "Duties") { renderDuties(); return; }
   if (view === "Issues") {
     $("issues").innerHTML = issues.length ? `<ul class="issues">${issues.map(i =>
-      `<li class="${i.severity}">${i.day ? `${esc(dayPeriodLabel(i.day, i.period))}: ` : ""}${esc(i.message)}</li>`).join("")}</ul>` : "<p>No issues found.</p>";
+      `<li class="${i.severity}">${i.day ? `${esc(i.period ? dayPeriodLabel(i.day, i.period) : dayLabel(i.day))}: ` : ""}${esc(i.message)}</li>`).join("")}</ul>` : "<p>No issues found.</p>";
     return;
   }
   if (view === "Changes") {
@@ -408,15 +524,15 @@ function renderGrid() {
     }
     html += "</tr>";
   }
-  if (view === "Teacher" && DUTIES.length) {
+  if (view === "Teacher" && hasDuties()) {
     // Yard duties for this teacher, one row per time of day (read-only, from the duty roster).
     html += `<tr><th colspan="${days.length + 1}" style="text-align:left">Yard duties</th></tr>`;
     for (const slot of DUTY_SLOTS) {
-      html += `<tr><th>${esc(slot)}</th>` + days.map(d => `<td class="${weekCls(d)} duty">${dutiesAt(d, slot, key).map(x => `<div class="l duty">${esc(x[2])}</div>`).join("")}</td>`).join("") + "</tr>";
+      html += `<tr><th>${esc(slot)}</th>` + days.map(d => `<td class="${weekCls(d)} duty">${dutiesAt(d, slot, key).map(x => `<div class="l duty">${esc(x.duty)}</div>`).join("")}</td>`).join("") + "</tr>";
     }
   }
   $("grid").innerHTML = html + "</tbody></table>";
-  const nDuties = view === "Teacher" ? DUTIES.filter(x => x[3] === key).length : 0;
+  const nDuties = view === "Teacher" ? state.duties.filter(x => x.teacher === key).length : 0;
   $("info").textContent = `${mine.length} rows` + (v.clash ? ` · ${clashes} clashing slots` : "") + (nDuties ? ` · ${nDuties} yard duties` : "");
   renderMembers(key);
 }
@@ -438,6 +554,60 @@ function renderMembers(key) {
   } else m.innerHTML = "";
 }
 
+// ---------- duty builder ----------
+function renderDuties() {
+  const teachers = allTeachers(), rows = dutyRows();
+  const slotSel = $("duty-slot"), prevSlot = slotSel.value;
+  slotSel.innerHTML = DUTY_SLOTS.map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join("");
+  if (DUTY_SLOTS.includes(prevSlot)) slotSel.value = prevSlot;
+  $("dutynames").innerHTML = [...new Set(rows.map(r => r[1]))].map(n => `<option value="${esc(n)}">`).join("");
+  const weekCls = d => { const b = blockOf(d); return b && b.days[0] === d && b.n > 1 ? "week" : ""; };
+  let html = "<thead>";
+  if (BLOCKS.length) html += `<tr><th></th>${BLOCKS.map(b => `<th class="block week" colspan="${b.days.filter(d => days.includes(d)).length}">${esc(b.name)} <small>${esc(b.weeks || "")}</small></th>`).join("")}</tr>`;
+  html += `<tr><th>Duty</th>${days.map(d => `<th class="${weekCls(d)}">${esc(weekdayOf(d))}</th>`).join("")}</tr></thead><tbody>`;
+  let lastSlot = null, empty = 0, bad = 0;
+  for (const [slot, duty] of rows) {
+    if (slot !== lastSlot) { html += `<tr><th class="slot" colspan="${days.length + 1}">${esc(slot)}</th></tr>`; lastSlot = slot; }
+    html += `<tr><th>${esc(duty)} <button type="button" class="x" data-rm-slot="${esc(slot)}" data-rm-duty="${esc(duty)}" title="Remove this duty from every day" aria-label="Remove ${esc(duty)}">✕</button></th>`;
+    for (const d of days) {
+      const cur = state.duties.find(x => x.day === d && x.slot === slot && x.duty === duty);
+      const t = cur ? cur.teacher : "";
+      const why = dutyProblem(d, slot, duty, t);
+      if (!t) empty++; if (why) bad++;
+      const opts = [...new Set([...teachers, t])].filter(Boolean).map(x => {
+        const p = dutyProblem(d, slot, duty, x);
+        return `<option value="${esc(x)}" ${x === t ? "selected" : ""}>${esc(x)}${p ? " ✗" : ""}</option>`;
+      }).join("");
+      html += `<td class="${weekCls(d)} ${!t ? "empty" : ""} ${why ? "clash" : ""}" title="${esc(why || "")}"><select data-d="${d}" data-slot="${esc(slot)}" data-duty="${esc(duty)}" aria-label="${esc(duty)} ${esc(dayLabel(d))}"><option value="">—</option>${opts}</select></td>`;
+    }
+    html += "</tr>";
+  }
+  $("duty-grid").innerHTML = html + "</tbody>";
+  $("info").textContent = `${rows.length} duties · ${state.duties.length} assigned · ${empty} empty · ${bad} problems`;
+  // Loads: duties and lessons per teacher per cycle.
+  const load = teachers.map(t => ({t, duties: state.duties.filter(x => x.teacher === t).length,
+    lessons: new Set(state.lessons.filter(l => l.teacher === t).map(l => slotKey(l.day, l.period))).size,
+    away: (CFG.unavailable || []).filter(u => u[1] === t).length}))
+    .sort((a, b) => b.duties - a.duties || a.lessons - b.lessons || natural(a.t, b.t));
+  $("duty-loads").innerHTML = `<thead><tr><th>Teacher</th><th>Duties</th><th>Lessons</th><th>Days away</th></tr></thead><tbody>` +
+    load.map(x => `<tr><td>${esc(x.t)}</td><td class="n">${x.duties}</td><td class="n">${x.lessons}</td><td class="n">${x.away || ""}</td></tr>`).join("") + "</tbody>";
+}
+$("duty-grid").addEventListener("change", e => {
+  const sel = e.target.closest("select"); if (!sel) return;
+  setDuty(Number(sel.dataset.d), sel.dataset.slot, sel.dataset.duty, sel.value);
+});
+$("duty-grid").addEventListener("click", e => {
+  const b = e.target.closest("button.x"); if (b) removeDuty(b.dataset.rmSlot, b.dataset.rmDuty);
+});
+$("duty-add").addEventListener("click", () => { addDutyDef($("duty-slot").value, $("duty-name").value.trim()); $("duty-name").value = ""; });
+$("duty-auto").addEventListener("click", autoFill);
+$("dl-duties").addEventListener("click", () => {
+  const rows = state.duties.slice().sort((a, b) => a.day - b.day || DUTY_SLOTS.indexOf(a.slot) - DUTY_SLOTS.indexOf(b.slot) || natural(a.duty, b.duty));
+  const q = v => /[",\n]/.test(v) ? `"${String(v).replace(/"/g, '""')}"` : v;
+  download("duties.csv", [["day", "block", "weekday", "slot", "duty", "teacher"],
+    ...rows.map(x => [x.day, (blockOf(x.day) || {n: ""}).n, weekdayOf(x.day), q(x.slot), q(x.duty), x.teacher])], "\n");
+});
+
 // ---------- print view: master timetable (all years) or one year, per block ----------
 function printBlocks() { return BLOCKS.length ? BLOCKS : [{name: "Full cycle", short: "", weeks: "", days, n: 1}]; }
 function printGroups() { return PGROUPS.length ? PGROUPS : periods.map(p => ({ids: [p], name: `P${p}`, time: ""})); }
@@ -447,7 +617,7 @@ function renderPrintControls() {
   bl.innerHTML = `<option value="">All blocks</option>` + printBlocks().map(b => `<option value="${b.n}">${esc(b.name)} ${esc(b.weeks)}</option>`).join("");
   const years = uniq("year").sort(yearSort);
   yr.innerHTML = `<option value="">All years (master)</option>` + years.map(y => `<option value="${esc(y)}">Year ${esc(y)}</option>`).join("")
-    + (DUTIES.length ? `<option value="duties">Yard duty roster</option>` : "");
+    + (hasDuties() ? `<option value="duties">Yard duty roster</option>` : "");
   if ([...bl.options].some(o => o.value === pb)) bl.value = pb;
   if ([...yr.options].some(o => o.value === py)) yr.value = py;
 }
@@ -462,14 +632,13 @@ function renderPrint() {
     if (blockSel && String(b.n) !== blockSel) continue;
     if (yearSel === "duties") {
       const bdays = b.days.filter(d => days.includes(d));
-      const dutyNames = [...new Set(DUTIES.filter(x => bdays.includes(x[0])).map(x => x[1] + "\u0000" + x[2]))]
-        .map(k => k.split("\u0000")).sort((p, q) => DUTY_SLOTS.indexOf(p[0]) - DUTY_SLOTS.indexOf(q[0]) || natural(p[1], q[1]));
+      const dutyNames = dutyRows();
       html += `<div class="sheet"><h2>${esc(`${term} Yard Duty Roster — ${b.name} (${b.weeks})`.toUpperCase().replace(/\s+/g, " ").trim())}</h2><table><thead><tr><th class="dutyhead">Duty</th>` +
         bdays.map(d => `<th>${esc(weekdayOf(d))}</th>`).join("") + "</tr></thead><tbody>";
       let lastSlot = null;
       for (const [slot, duty] of dutyNames) {
         if (slot !== lastSlot) { html += `<tr><th colspan="${bdays.length + 1}" style="text-align:left">${esc(slot)}</th></tr>`; lastSlot = slot; }
-        html += `<tr><td class="dutyname">${esc(duty)}</td>` + bdays.map(d => `<td>${esc(DUTIES.filter(x => x[0] === d && x[1] === slot && x[2] === duty).map(x => x[3]).join(", "))}</td>`).join("") + "</tr>";
+        html += `<tr><td class="dutyname">${esc(duty)}</td>` + bdays.map(d => `<td>${esc(state.duties.filter(x => x.day === d && x.slot === slot && x.duty === duty).map(x => x.teacher).join(", "))}</td>`).join("") + "</tr>";
       }
       html += `</tbody></table><div class="foot">${esc(CFG.school || "")} · from Timetabler's Yard Duties report · printed ${new Date().toLocaleDateString()}</div></div>`;
       continue;
@@ -511,7 +680,7 @@ function renderAll() {
   renderViews(); renderPick(); renderGrid();
   $("rooms").innerHTML = uniq("room").map(r => `<option value="${esc(r)}">`).join("");
   $("teachers").innerHTML = uniq("teacher").map(t => `<option value="${esc(t)}">`).join("");
-  $("note").textContent = log.length ? `${log.length} unsaved edit${log.length === 1 ? "" : "s"} — kept in this browser until you press Reset. Download both files to import into TASS.`
+  $("note").textContent = log.length ? `${log.length} unsaved edit${log.length === 1 ? "" : "s"} — kept in this browser until you press Reset. Download both files to import into TASS; duty changes go in duties.csv (Duties tab).`
     : "Drag a lesson to move it. Click a lesson to change its room or teachers. Click an empty cell to add a lesson.";
 }
 
@@ -610,8 +779,8 @@ $("members").addEventListener("click", e => {
 });
 
 // ---------- download: same format as the TASS import files (unquoted CSV, CRLF) ----------
-function download(name, rows) {
-  const text = rows.map(r => r.join(",") + "\r\n").join("");
+function download(name, rows, nl = "\r\n") {
+  const text = rows.map(r => r.join(",") + nl).join("");
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([text], {type: "text/plain"}));
   a.download = name;

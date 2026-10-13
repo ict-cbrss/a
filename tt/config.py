@@ -11,8 +11,10 @@ A config directory holds:
                   line group, with periods per cycle. Used to check that each
                   class is timetabled for its planned number of periods.
   duties.csv      day,block,weekday,slot,duty,teacher - yard duty roster from
-                  Timetabler's Yard Duties report. Shown in the editor's
-                  Teacher view and printable as a roster; not editable yet.
+                  Timetabler's Yard Duties report. Edited in the editor's
+                  Duties tab, which downloads a replacement for this file.
+  unavailable.csv day,teacher - days a teacher is not at school (the "U"
+                  cells of the Yard Duties report). Used by the duty builder.
 All are optional; without them the editor shows Day N / PN and class codes.
 """
 import csv
@@ -27,6 +29,7 @@ def load(directory):
     cfg["names"] = []
     cfg["planned"] = {}
     cfg["duties"] = []
+    cfg["unavailable"] = []
     if not directory:
         return cfg
     directory = Path(directory)
@@ -54,4 +57,8 @@ def load(directory):
     if duties.exists():
         with duties.open(encoding="utf-8", newline="") as f:
             cfg["duties"] = [[int(r["day"]), r["slot"], r["duty"], r["teacher"]] for r in csv.DictReader(f)]
+    unavailable = directory / "unavailable.csv"
+    if unavailable.exists():
+        with unavailable.open(encoding="utf-8", newline="") as f:
+            cfg["unavailable"] = [[int(r["day"]), r["teacher"]] for r in csv.DictReader(f)]
     return cfg

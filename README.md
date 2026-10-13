@@ -78,11 +78,28 @@ reflects any unsaved edits and says so in its footer.
   the input the line builder and solver will need. (Timetabler's Class
   Staffing report holds the same data in another layout; it was checked
   against this file and matches.)
-- **duties.csv**: the yard duty roster from Timetabler's Yard Duties
-  report (`day,block,weekday,slot,duty,teacher`). Shown under each
-  teacher's grid in the Teacher view, and printable from the Print tab as
-  "Yard duty roster". Read-only for now; duties are not part of the TASS
-  export.
+- **duties.csv**: the yard duty roster (`day,block,weekday,slot,duty,
+  teacher`), first taken from Timetabler's Yard Duties report. Edited in the
+  **Duties** tab; replace this file with the tab's download to keep changes.
+  Duties are stand-alone: they are not part of the TASS export.
+- **unavailable.csv**: `day,teacher` for days a teacher is not at school
+  (the "U" cells of the Yard Duties report). The duty builder won't give
+  them a duty that day.
+- `duty_slots` in **school.json** lists the times of day a duty can fall
+  in, and which TASS periods clash with each (Before School ↔ P1 Morning
+  Class, After School ↔ P9).
+
+### Duty builder (Duties tab)
+
+A grid of duties (rows, grouped by time of day) × days of the cycle, with
+a teacher dropdown in each cell. Red cells are problems: the teacher is away
+that day, already has another duty at that time, or teaches a clashing
+period. Orange cells are unassigned. The table on the right shows each
+teacher's duties and lessons per cycle, so loads can be balanced. **Add
+duty** adds a row; ✕ removes one; **Auto-fill** gives every empty cell to the
+free teacher with the fewest duties. Teacher view shows each teacher's
+duties under their grid, Print has a "Yard duty roster" sheet, and
+**Download duties.csv** saves the roster.
 
 TASS period numbers map to the school day as: P1 Morning Class (before MC,
 used some days) · P2 Morning Circle 9:00 · P3+P4 Main Lesson 9:10–10:40 ·

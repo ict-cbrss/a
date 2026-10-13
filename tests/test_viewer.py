@@ -32,6 +32,8 @@ class ViewerTests(unittest.TestCase):
                "periods": [{"ids": [2], "name": "MC", "time": "9:00"}, {"ids": [3], "name": "Main Lesson", "time": "9:10 - 10:40"}],
                "year_order": ["12", "8", "7"],
                "names": [["C07E_1", "C7 English", None], ["C07MA_1", "C7 Maths ML1", 1], ["C07MA_1", "C7 Maths ML2", 2]],
+               "duty_slots": [{"name": "Before School", "conflicts": [2]}, {"name": "Recess", "conflicts": []}, {"name": "Lunch 1", "conflicts": []}],
+               "unavailable": [[2, "DD"]],
                "duties": [[1, "Recess", "Recess top", "AA"], [1, "Lunch 1", "Lunch 1 Walk", "BB"], [2, "Recess", "Recess top", "AA"]]}
         cls.html.write_text(report.build(cls.lessons, cls.enrolments,
                                          validate.check(cls.lessons, cls.enrolments), cfg), encoding="utf-8")
@@ -167,3 +169,28 @@ class ViewerTests(unittest.TestCase):
         self.assertEqual(sheet.locator("h2").inner_text(), "TERM 4 2026 YARD DUTY ROSTER — MAIN LESSON 1 (WEEKS 1-3)")
         self.assertIn("Recess top\tAA", sheet.inner_text())
         self.assertIn("Lunch 1 Walk\tBB", sheet.inner_text())
+
+    def test_duty_builder_assign_clash_autofill_remove_download(self):
+        self.page.click("#views button[data-v=Duties]")
+        self.assertEqual(self.page.inner_text("#info"), "2 duties · 3 assigned · 1 empty · 0 problems")
+        sel = "select[data-d='2'][data-duty='Lunch 1 Walk']"
+        self.page.select_option(sel, "AA")   # AA already has Recess top on day 2 - different slot, so fine
+        self.assertEqual(self.page.inner_text("#info"), "2 duties · 4 assigned · 0 empty · 0 problems")
+        self.page.select_option("select[data-d='2'][data-duty='Recess top']", "DD")   # DD is away on day 2
+        self.assertEqual(self.page.inner_text("#info"), "2 duties · 4 assigned · 0 empty · 1 problems")
+        self.assertIn("DD is away", self.page.locator("#duty-grid td.clash").first.get_attribute("title"))
+        self.page.click("#undo"); self.page.click("#undo")
+        # New duty before school: AA teaches at P2 (MC) on day 1 so cannot take it; auto-fill must pick someone else.
+        self.page.select_option("#duty-slot", "Before School"); self.page.fill("#duty-name", "Gate"); self.page.click("#duty-add")
+        self.assertEqual(self.page.inner_text("#info"), "3 duties · 3 assigned · 3 empty · 0 problems")
+        self.page.click("#duty-auto")
+        self.assertEqual(self.page.inner_text("#info"), "3 duties · 6 assigned · 0 empty · 0 problems")
+        self.assertNotEqual(self.page.input_value("select[data-d='1'][data-duty='Gate']"), "AA")
+        self.assertNotEqual(self.page.input_value("select[data-d='2'][data-duty='Gate']"), "DD")
+        csv_text = self.download("#dl-duties").read_text()
+        self.assertTrue(csv_text.startswith("day,block,weekday,slot,duty,teacher\n1,1,Mon,Before School,Gate,"))
+        self.assertEqual(csv_text.count("\n"), 7)
+        self.page.click("button[data-rm-duty='Gate']")   # confirm() auto-accepted
+        self.assertEqual(self.page.inner_text("#info"), "2 duties · 4 assigned · 0 empty · 0 problems")   # auto-fill also filled Lunch 1 Walk
+        self.page.click("#views button[data-v=Changes]")
+        self.assertIn("Removed duty Gate at Before School", self.page.inner_text("#changes"))
