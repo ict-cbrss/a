@@ -72,6 +72,26 @@ td.clash .l { background: var(--bad); color: var(--bad-fg); }
 #teacher-settings td.away input { margin: 0; }
 #teacher-settings tr.off td { color: var(--muted); }
 .loads td.over { color: var(--bad-fg); font-weight: 700; }
+/* Class Information editor */
+#class-grid { table-layout: auto; width: max-content; min-width: 100%; }
+#class-grid th, #class-grid td { font-size: 12px; vertical-align: top; }
+#class-grid th.g, #class-grid td:not(.rowhead) { min-width: 170px; }
+#class-grid th.g { text-align: center; }
+#class-grid th.g small { display: block; font-weight: 400; }
+#class-grid th.g button { padding: 0 5px; font-size: 11px; line-height: 1.4; }
+#class-grid input, #class-grid select { width: 100%; min-width: 0; padding: 2px 4px; font-size: 12px; }
+#class-grid input.num { width: 52px; }
+#class-grid td.rowhead { width: 68px; font-weight: 600; background: var(--head); }
+#class-grid .cls { border: 1px solid var(--line); border-radius: 6px; padding: 4px; margin-bottom: 4px; background: var(--cell); }
+#class-grid .cls b { display: block; color: var(--cell-fg); font-size: 12px; }
+#class-grid .cls .row { display: flex; gap: 4px; margin-top: 3px; align-items: center; }
+#class-grid .cls .row small { white-space: nowrap; color: var(--muted); width: 46px; }
+#class-grid .cls .row small:last-child { width: auto; }
+#class-grid .cls .row select, #class-grid .cls .row input { flex: 1; }
+#class-grid .cls button.x { padding: 0 5px; font-size: 11px; margin-left: auto; }
+#class-grid td.over { background: var(--bad); }
+#class-grid td.mrcg-1 { box-shadow: inset 3px 0 var(--accent); }
+.loads td.warn { color: var(--warn-fg); font-weight: 700; }
 /* Per-teacher duty sheets print on A4 portrait */
 .sheet.a4 { page: a4; max-width: 720px; margin-left: auto; margin-right: auto; }
 .sheet.a4 h2 { font-size: 18px; }
@@ -161,6 +181,20 @@ th small { color: var(--muted); font-weight: 400; font-size: 11px; display: bloc
   </div>
 </div>
 <datalist id="dutynames"></datalist>
+<div id="classes" class="hidden">
+  <p class="note">Class information for one year: each column is a group (line) of classes that run at the same time, with the periods per cycle the group needs. A cross-year group number links a group to groups in other years that run together (e.g. the 9/10 electives). Changes here are the plan the timetable is built from; they do not move anything in the timetable itself.</p>
+  <div class="bar">
+    <button type="button" id="group-add">Add group</button>
+    <span id="class-total" class="summary"></span>
+    <span class="spacer"></span>
+    <button type="button" class="primary" id="dl-curriculum">Download curriculum.csv</button>
+    <span class="summary">Replace config/curriculum.csv with this file to keep the plan.</span>
+  </div>
+  <div class="side">
+    <div class="wrap"><table id="class-grid"></table></div>
+    <div class="loads"><table id="class-loads"></table></div>
+  </div>
+</div>
 <div id="teacher-settings" class="hidden">
   <p class="note">Duty settings per teacher. <b>Max</b> caps duties per cycle (blank = no cap). <b>No duties</b> keeps them out of the roster. Tick the days they are away; the builder won't roster them then. Name and email are for the duty sheets and for emailing them.</p>
   <div class="bar"><button type="button" class="primary" id="dl-teachers">Download teachers.csv</button><span class="summary">Replace config/teachers.csv with this file to keep the settings.</span></div>
@@ -215,10 +249,12 @@ const ORIGINAL = {
   duties: ((DATA.config || {}).duties || []).map(d => ({day: d[0], slot: d[1], duty: d[2], teacher: d[3]})),
   dutyDefs: [],   // [slot, duty] rows added in the builder that have no assignment yet
   teachers: ((DATA.config || {}).teachers || []).map(t => ({...t, away_days: t.away_days.slice()})),
+  classes: ((DATA.config || {}).classes || []).map(c => ({...c})),   // curriculum rows: one per class per group
 };
 const clone = s => ({ lessons: s.lessons.map(l => ({...l})), enrolments: s.enrolments.map(e => ({...e})),
   duties: (s.duties || []).map(d => ({...d})), dutyDefs: (s.dutyDefs || []).map(d => d.slice()),
-  teachers: (s.teachers || []).map(t => ({...t, away_days: t.away_days.slice()})) });
+  teachers: (s.teachers || []).map(t => ({...t, away_days: t.away_days.slice()})),
+  classes: (s.classes || []).map(c => ({...c})) });
 const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
 const natural = (a, b) => String(a).localeCompare(String(b), undefined, {numeric: true});
 const slotKey = (d, p) => `${d},${p}`;
@@ -346,6 +382,7 @@ function restore() {
       state = saved.state; log = saved.log;
       if (!state.duties) { state.duties = clone(ORIGINAL).duties; state.dutyDefs = []; }   // saved before duties were editable
       if (!state.teachers) state.teachers = clone(ORIGINAL).teachers;
+      if (!state.classes) state.classes = clone(ORIGINAL).classes;
       return true;
     }
   } catch (e) {}
@@ -444,6 +481,16 @@ function dutyProblemIn(s, d, slot, duty, t) {
 }
 function check(s) {
   const issues = checkTimetable(s);
+  // Each class should be timetabled for the periods its groups plan (Timetabler [16A] / our period-count check).
+  const planned = new Map(), seenG = new Set();
+  for (const c of s.classes) { const k = c.class_code + "|" + c.year + c.group; if (seenG.has(k)) continue; seenG.add(k); planned.set(c.class_code, (planned.get(c.class_code) || 0) + (Number(c.periods) || 0)); }
+  for (const [code, want] of planned) {
+    const got = new Set(s.lessons.filter(l => l.class_code === code).map(l => slotKey(l.day, l.period))).size;
+    if (got && got !== want) issues.push({severity: "warning", kind: "period-count", message: `${code} is timetabled for ${got} periods, plan says ${want}`});
+  }
+  for (const c of s.classes) {
+    if (!c.teacher) issues.push({severity: "warning", kind: "no-teacher", message: `${c.class_code} in group ${groupLetter(c.group)} (Year ${c.year}) has no teacher`});
+  }
   // Over-cap is reported once per teacher, not once per duty.
   for (const ts of s.teachers) {
     const n = dutyCount(s, ts.code);
@@ -511,6 +558,7 @@ const VIEWS = {
   Year:    { opts: () => uniq("year"), label: y => `Year ${y}`, match: (l, y) => l.year === y },
   Student: { opts: () => students().map(s => s.student_id), label: id => { const s = students().find(s => s.student_id === id); return `${s.name} (Yr ${s.year}, ${id})`; },
              match: (l, id) => classesOf(id).has(l.class_code), clash: true },
+  Classes: { opts: () => [...new Set(state.classes.map(c => c.year))].sort(yearSort), label: y => `Year ${y}` },
   Duties:  {},
   Teachers: {},
   Issues:  {},
@@ -540,7 +588,8 @@ function renderPick() {
 
 function renderGrid() {
   const v = VIEWS[view];
-  for (const id of ["grid", "members"]) $(id).classList.toggle("hidden", !v.opts);
+  for (const id of ["grid", "members"]) $(id).classList.toggle("hidden", !v.opts || view === "Classes");
+  $("classes").classList.toggle("hidden", view !== "Classes");
   $("issues").classList.toggle("hidden", view !== "Issues");
   $("changes").classList.toggle("hidden", view !== "Changes");
   $("print").classList.toggle("hidden", view !== "Print");
@@ -550,6 +599,7 @@ function renderGrid() {
   if (view === "Print") { renderPrint(); return; }
   if (view === "Duties") { renderDuties(); return; }
   if (view === "Teachers") { renderTeachers(); return; }
+  if (view === "Classes") { renderClasses(); return; }
   if (view === "Issues") {
     $("issues").innerHTML = issues.length ? `<ul class="issues">${issues.map(i =>
       `<li class="${i.severity}">${i.day ? `${esc(i.period ? dayPeriodLabel(i.day, i.period) : dayLabel(i.day))}: ` : ""}${esc(i.message)}</li>`).join("")}</ul>` : "<p>No issues found.</p>";
@@ -661,6 +711,128 @@ $("dl-duties").addEventListener("click", () => {
   const q = v => /[",\n]/.test(v) ? `"${String(v).replace(/"/g, '""')}"` : v;
   download("duties.csv", [["day", "block", "weekday", "slot", "duty", "teacher"],
     ...rows.map(x => [x.day, (blockOf(x.day) || {n: ""}).n, weekdayOf(x.day), q(x.slot), q(x.duty), x.teacher])], "\n");
+});
+
+// ---------- class information (Timetabler [7A]) ----------
+const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const groupLetter = g => g.replace(/^\d+/, "");
+// Groups of a year in letter order, each with its rows.
+function groupsOf(s, year) {
+  const m = new Map();
+  for (const c of s.classes) if (c.year === year) (m.get(c.group) || m.set(c.group, []).get(c.group)).push(c);
+  return [...m.entries()].sort((a, b) => natural(groupLetter(a[0]), groupLetter(b[0]))).map(([group, rows]) => ({group, rows}));
+}
+// Re-letter a year's groups A, B, C... in their current order (Timetabler does the same after moves).
+function reletter(s, year, order) {
+  order.forEach((group, i) => { for (const c of s.classes) if (c.year === year && c.group === group) c.group = year + LETTERS[i]; });
+}
+const cyclePeriods = () => days.length * periods.length;
+function plannedLoad(s, t) {
+  // A teacher's planned periods: each (group, class) row they teach counts the group's periods once.
+  // Only years that are in the timetable count (the plan may hold a year that isn't running this term).
+  const active = new Set(s.lessons.map(l => l.year));
+  const seen = new Set(); let n = 0;
+  for (const c of s.classes) if (c.teacher === t && (!active.size || active.has(c.year)) && !seen.has(c.year + c.group + c.class_code)) { seen.add(c.year + c.group + c.class_code); n += Number(c.periods) || 0; }
+  return n;
+}
+function renderClasses() {
+  const year = $("pick").value;
+  const groups = groupsOf(state, year);
+  const teachers = allTeachers(), rooms = uniq("room");
+  const total = groups.reduce((n, g) => n + (Number(g.rows[0].periods) || 0), 0);
+  $("class-total").textContent = `${groups.length} groups · ${total} periods of ${cyclePeriods()} in the cycle`;
+  const opt = (list, cur) => `<option value=""></option>` + [...new Set([...list, cur])].filter(Boolean).sort(natural).map(x => `<option value="${esc(x)}" ${x === cur ? "selected" : ""}>${esc(x)}</option>`).join("");
+  let html = `<thead><tr><th></th>${groups.map((g, i) => `<th class="g">${esc(groupLetter(g.group))}` +
+    `<small><button type="button" data-mv="${esc(g.group)}" data-dir="-1" title="Move left" ${i === 0 ? "disabled" : ""}>◀</button> ` +
+    `<button type="button" data-del="${esc(g.group)}" title="Delete group">✕</button> ` +
+    `<button type="button" data-mv="${esc(g.group)}" data-dir="1" title="Move right" ${i === groups.length - 1 ? "disabled" : ""}>▶</button></small></th>`).join("")}</tr></thead><tbody>`;
+  const field = (label, f, cls = "num", type = "number") => `<tr><td class="rowhead">${label}</td>` + groups.map(g =>
+    `<td><input type="${type}" min="0" class="${cls}" data-g="${esc(g.group)}" data-f="${f}" value="${esc(g.rows[0][f])}" aria-label="${label} for group ${esc(groupLetter(g.group))}"></td>`).join("") + "</tr>";
+  html += field("Periods", "periods") + field("Doubles", "doubles") + field("Cross-year", "mrcg", "num", "text");
+  html += `<tr><td class="rowhead">Classes</td>` + groups.map(g => `<td class="${g.rows[0].mrcg ? "mrcg-1" : ""}">` + g.rows.map(c => `<div class="cls" data-g="${esc(g.group)}" data-c="${esc(c.class_code)}">` +
+      `<b title="${esc(c.class_code)}">${esc(c.class_name || className(c.class_code))} <button type="button" class="x" data-rm-g="${esc(g.group)}" data-rm-c="${esc(c.class_code)}" title="Remove from group">✕</button></b>` +
+      `<div class="row"><small>Teacher</small><select data-g="${esc(g.group)}" data-c="${esc(c.class_code)}" data-f="teacher" aria-label="Teacher of ${esc(c.class_code)}">${opt(teachers, c.teacher)}</select></div>` +
+      `<div class="row"><small>Room</small><select data-g="${esc(g.group)}" data-c="${esc(c.class_code)}" data-f="room" aria-label="Room of ${esc(c.class_code)}">${opt(rooms, c.room)}</select></div>` +
+      `<div class="row"><small>Seats</small><input type="number" min="0" class="num" data-g="${esc(g.group)}" data-c="${esc(c.class_code)}" data-f="seats" value="${esc(c.seats)}" aria-label="Seats for ${esc(c.class_code)}"><small>${esc(c.students)} students</small></div>` +
+      `</div>`).join("") +
+    `<select data-add-g="${esc(g.group)}" aria-label="Add class to group ${esc(groupLetter(g.group))}"><option value="">Add class…</option>${allClasses().filter(code => !g.rows.some(r => r.class_code === code)).map(code => `<option value="${esc(code)}">${esc(className(code))} [${esc(code)}]</option>`).join("")}</select></td>`).join("") + "</tr>";
+  $("class-grid").innerHTML = html + "</tbody>";
+  $("info").textContent = "";
+  // Planned (from these groups) vs actual (timetabled) periods per teacher, all years.
+  const load = teachers.map(t => ({t, planned: plannedLoad(state, t), actual: teacherLoad(t)})).filter(x => x.planned || x.actual)
+    .sort((a, b) => b.planned - a.planned || natural(a.t, b.t));
+  $("class-loads").innerHTML = `<thead><tr><th>Teacher</th><th>Planned</th><th>Timetabled</th></tr></thead><tbody>` +
+    load.map(x => `<tr><td>${esc(x.t)}</td><td class="n">${x.planned}</td><td class="n ${x.planned !== x.actual ? "warn" : ""}">${x.actual}</td></tr>`).join("") + "</tbody>";
+}
+function groupRows(s, year, group) { return s.classes.filter(c => c.year === year && c.group === group); }
+$("class-grid").addEventListener("change", e => {
+  const el = e.target.closest("input, select"); if (!el) return;
+  const year = $("pick").value;
+  if (el.dataset.addG) {
+    const code = el.value, group = el.dataset.addG; if (!code) return;
+    apply(`Added ${code} to group ${groupLetter(group)} (Year ${year})`, s => {
+      const first = groupRows(s, year, group)[0];
+      const tmpl = s.classes.find(c => c.class_code === code) || {};   // same class elsewhere: copy its teacher/room
+      s.classes.push({year, group, periods: first.periods, doubles: first.doubles, mrcg: first.mrcg, class_code: code,
+        class_name: className(code), students: tmpl.students || "", teacher: tmpl.teacher || "", room: tmpl.room || "", seats: tmpl.seats || "", class_type: tmpl.class_type || ""});
+    });
+    return;
+  }
+  const group = el.dataset.g, f = el.dataset.f, value = el.value.trim();
+  if (el.dataset.c) {
+    apply(`Set ${el.dataset.c} ${f} = ${value || "none"} in group ${groupLetter(group)}`, s => {
+      for (const c of groupRows(s, year, group)) if (c.class_code === el.dataset.c) c[f] = value;
+    });
+  } else {
+    apply(`Set group ${groupLetter(group)} (Year ${year}) ${f === "mrcg" ? "cross-year group" : f} = ${value || "none"}`, s => {
+      for (const c of groupRows(s, year, group)) c[f] = value;
+    });
+  }
+});
+$("class-grid").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  const year = $("pick").value;
+  if (b.dataset.rmG) {
+    const group = b.dataset.rmG, code = b.dataset.rmC;
+    apply(`Removed ${code} from group ${groupLetter(group)} (Year ${year})`, s => {
+      const rows = groupRows(s, year, group);
+      if (rows.length === 1) return "A group needs at least one class; delete the group instead.";
+      s.classes = s.classes.filter(c => !(c.year === year && c.group === group && c.class_code === code));
+    });
+  } else if (b.dataset.del) {
+    const group = b.dataset.del;
+    if (!confirm(`Delete group ${groupLetter(group)} of Year ${year} and its ${groupRows(state, year, group).length} class row(s)?`)) return;
+    apply(`Deleted group ${groupLetter(group)} (Year ${year})`, s => {
+      s.classes = s.classes.filter(c => !(c.year === year && c.group === group));
+      reletter(s, year, groupsOf(s, year).map(g => g.group));
+    });
+  } else if (b.dataset.mv) {
+    const group = b.dataset.mv, dir = Number(b.dataset.dir);
+    apply(`Moved group ${groupLetter(group)} (Year ${year}) ${dir < 0 ? "left" : "right"}`, s => {
+      const order = groupsOf(s, year).map(g => g.group), i = order.indexOf(group), j = i + dir;
+      if (j < 0 || j >= order.length) return "Already at the edge.";
+      [order[i], order[j]] = [order[j], order[i]];
+      // Re-letter via temporary names so two groups never share a letter mid-way.
+      order.forEach((g, k) => { for (const c of s.classes) if (c.year === year && c.group === g) c.group = `${year}#${k}`; });
+      reletter(s, year, order.map((g, k) => `${year}#${k}`));
+    });
+  }
+});
+$("group-add").addEventListener("click", () => {
+  const year = $("pick").value;
+  const code = prompt("Class code for the first class in the new group (e.g. C09Geo_1):"); if (!code) return;
+  apply(`Added group with ${code.trim()} (Year ${year})`, s => {
+    const n = groupsOf(s, year).length;
+    const tmpl = s.classes.find(c => c.class_code === code.trim()) || {};
+    s.classes.push({year, group: year + LETTERS[n], periods: "3", doubles: "0", mrcg: "", class_code: code.trim(), class_name: className(code.trim()),
+      students: tmpl.students || "", teacher: tmpl.teacher || "", room: tmpl.room || "", seats: tmpl.seats || "", class_type: tmpl.class_type || ""});
+  });
+});
+$("dl-curriculum").addEventListener("click", () => {
+  const cols = ["year", "group", "periods", "doubles", "mrcg", "class_code", "class_name", "students", "teacher", "room", "seats", "class_type"];
+  const q = v => /[",\n]/.test(v) ? `"${String(v).replace(/"/g, '""')}"` : v;
+  const rows = state.classes.slice().sort((a, b) => yearSort(a.year, b.year) || natural(groupLetter(a.group), groupLetter(b.group)));
+  download("curriculum.csv", [cols, ...rows.map(c => cols.map(k => q(c[k] ?? "")))], "\n");
 });
 
 // ---------- teacher settings ----------

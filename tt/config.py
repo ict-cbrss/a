@@ -7,9 +7,12 @@ A config directory holds:
   classnames.csv  code,name,block - display name for a class code; block is
                   blank for all blocks or a block number (1-based) when the
                   name changes per block, as main lessons do.
-  curriculum.csv  Timetabler's Class Details report: one row per class per
-                  line group, with periods per cycle. Used to check that each
-                  class is timetabled for its planned number of periods.
+  curriculum.csv  Timetabler's Class Information: one row per class per
+                  group (line), with the group's periods per cycle, doubles
+                  and cross-year group number (mrcg), and the class's
+                  teacher, room, seats and student count. Edited in the
+                  editor's Classes tab; also used to check that each class
+                  is timetabled for its planned number of periods.
   duties.csv      day,block,weekday,slot,duty,teacher - yard duty roster from
                   Timetabler's Yard Duties report. Edited in the editor's
                   Duties tab, which downloads a replacement for this file.
@@ -31,6 +34,7 @@ def load(directory):
     cfg = dict(DEFAULT)
     cfg["names"] = []
     cfg["planned"] = {}
+    cfg["classes"] = []
     cfg["duties"] = []
     cfg["teachers"] = []
     if not directory:
@@ -50,9 +54,14 @@ def load(directory):
         seen = set()
         with curriculum.open(encoding="utf-8", newline="") as f:
             for row in csv.DictReader(f):
+                if not row["class_code"]:
+                    continue
+                cfg["classes"].append({k: (row.get(k) or "") for k in
+                                       ("year", "group", "periods", "doubles", "mrcg", "class_code", "class_name",
+                                        "students", "teacher", "room", "seats", "class_type")})
                 # A class in several groups gets their periods added; a group is counted once per class.
                 key = (row["class_code"], row["group"])
-                if key in seen or not row["class_code"]:
+                if key in seen:
                     continue
                 seen.add(key)
                 cfg["planned"][row["class_code"]] = cfg["planned"].get(row["class_code"], 0) + int(row["periods"])

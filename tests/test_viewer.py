@@ -33,6 +33,11 @@ class ViewerTests(unittest.TestCase):
                "year_order": ["12", "8", "7"],
                "names": [["C07E_1", "C7 English", None], ["C07MA_1", "C7 Maths ML1", 1], ["C07MA_1", "C7 Maths ML2", 2]],
                "duty_slots": [{"name": "Before School", "conflicts": [2]}, {"name": "Recess", "conflicts": []}, {"name": "Lunch 1", "conflicts": []}],
+               "classes": [
+                   {"year": "7", "group": "7A", "periods": "1", "doubles": "0", "mrcg": "", "class_code": "C07E_1", "class_name": "C7 English", "students": "1", "teacher": "AA", "room": "G7", "seats": "30", "class_type": ""},
+                   {"year": "7", "group": "7B", "periods": "1", "doubles": "0", "mrcg": "1", "class_code": "C07MA_1", "class_name": "C7 Maths", "students": "1", "teacher": "BB", "room": "G7", "seats": "30", "class_type": ""},
+                   {"year": "7", "group": "7B", "periods": "1", "doubles": "0", "mrcg": "1", "class_code": "C07Sc_1", "class_name": "C7 Science", "students": "1", "teacher": "DD", "room": "SLab", "seats": "36", "class_type": ""},
+                   {"year": "8", "group": "8A", "periods": "2", "doubles": "0", "mrcg": "", "class_code": "C08E_1", "class_name": "C8 English", "students": "1", "teacher": "AA", "room": "G7", "seats": "30", "class_type": ""}],
                "teachers": [{"code": "DD", "name": "Dee D", "email": "dd@school", "max_duties": None, "no_duties": False, "away_days": [2]},
                             {"code": "CC", "name": "", "email": "", "max_duties": 1, "no_duties": False, "away_days": []}],
                "duties": [[1, "Recess", "Recess top", "AA"], [1, "Lunch 1", "Lunch 1 Walk", "BB"], [2, "Recess", "Recess top", "AA"]]}
@@ -223,6 +228,40 @@ class ViewerTests(unittest.TestCase):
         self.assertIn("BB,Bea B,,,,\n", csv_text)
         self.assertIn("DD,Dee D,dd@school,,,2\n", csv_text)
 
+    def test_class_information_editor(self):
+        self.page.click("#views button[data-v=Classes]")
+        self.page.select_option("#pick", "7")
+        self.assertEqual(self.page.inner_text("#class-total"), "2 groups · 2 periods of 4 in the cycle")
+        self.assertEqual([th.inner_text().split("\n")[0] for th in self.page.locator("#class-grid thead th.g").all()], ["A", "B"])
+        # C8 English is planned for 2 periods but timetabled for 1: an issue, and shown in the loads table.
+        self.page.click("#views button[data-v=Issues]")
+        self.assertIn("C08E_1 is timetabled for 1 periods, plan says 2", self.page.inner_text("#issues"))
+        self.page.click("#views button[data-v=Classes]")
+        self.assertIn("AA\t3\t1", self.page.inner_text("#class-loads"))   # both AA classes sit in the one slot
+        # Change a group's periods, a class's teacher, move a group, add and remove a class, add a group.
+        self.page.fill("input[data-g='7A'][data-f=periods]", "3"); self.page.press("input[data-g='7A'][data-f=periods]", "Tab")
+        self.assertEqual(self.page.inner_text("#class-total"), "2 groups · 4 periods of 4 in the cycle")
+        self.page.select_option("select[data-g='7B'][data-c='C07Sc_1'][data-f=teacher]", "CC")
+        self.page.click("button[data-mv='7A'][data-dir='1']")
+        self.assertEqual([th.inner_text().split("\n")[0] for th in self.page.locator("#class-grid thead th.g").all()], ["A", "B"])
+        self.assertEqual(self.page.locator("#class-grid .cls[data-g='7A']").first.get_attribute("data-c"), "C07MA_1")   # old B is now A
+        self.page.select_option("select[data-add-g='7B']", "C12D&T_1")
+        self.assertEqual(self.page.locator("#class-grid .cls[data-g='7B']").count(), 2)
+        self.page.click("button[data-rm-g='7B'][data-rm-c='C12D&T_1']")
+        self.assertEqual(self.page.locator("#class-grid .cls[data-g='7B']").count(), 1)
+        self.page.on("dialog", lambda d: d.accept("C07Geo_1") if d.type == "prompt" else d.accept())
+        self.page.click("#group-add")
+        self.assertEqual([th.inner_text().split("\n")[0] for th in self.page.locator("#class-grid thead th.g").all()], ["A", "B", "C"])
+        csv_text = self.download("#dl-curriculum").read_text()
+        rows = [l.split(",") for l in csv_text.strip().split("\n")]
+        self.assertEqual(rows[0][:6], ["year", "group", "periods", "doubles", "mrcg", "class_code"])
+        by = {(r[1], r[5]): r for r in rows[1:]}
+        self.assertEqual(by[("7A", "C07Sc_1")][8], "CC")          # moved to A, teacher changed
+        self.assertEqual(by[("7B", "C07E_1")][2], "3")            # periods changed
+        self.assertEqual(by[("7C", "C07Geo_1")][5], "C07Geo_1")   # new group
+        self.page.click("#views button[data-v=Changes]")
+        self.assertIn("Moved group A (Year 7) right", self.page.inner_text("#changes"))
+
 
 @unittest.skipUnless(sync_playwright, "playwright not installed")
 class PdfCommandTests(unittest.TestCase):
@@ -237,3 +276,4 @@ class PdfCommandTests(unittest.TestCase):
             names = sorted(p.name for p in (Path(d) / "pdf").iterdir())
         self.assertEqual(names, ["class-12-timetable.pdf", "class-7-timetable.pdf", "class-8-timetable.pdf",
                                  "duties-AA.pdf", "duties-BB.pdf", "master-timetable.pdf", "yard-duty-roster.pdf"])
+

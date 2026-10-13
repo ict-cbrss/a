@@ -86,13 +86,13 @@ what an emailing step would attach.
   Class Names report, which also lists Year 11 and classes defined but not
   running this term (0 periods); they are included so they can be added in
   the editor by code.
-- **curriculum.csv**: Timetabler's Class Details report as a table: per
-  year and line group, periods per cycle, doubles, class code and name,
-  student count, teacher, room, seats. `check` uses it to warn when a class
-  is timetabled for a different number of periods than planned. It is also
-  the input the line builder and solver will need. (Timetabler's Class
-  Staffing report holds the same data in another layout; it was checked
-  against this file and matches.)
+- **curriculum.csv**: the class information plan (Timetabler [7A]): per
+  year and group (line), the group's periods per cycle, doubles and
+  cross-year group number (`mrcg`), and each class's code, name, student
+  count, teacher, room and seats. Edited in the **Classes** tab; replace
+  this file with the tab's download to keep changes. `check` uses it to
+  warn when a class is timetabled for a different number of periods than
+  planned, and it is the input the solver will build from.
 - **duties.csv**: the yard duty roster (`day,block,weekday,slot,duty,
   teacher`), first taken from Timetabler's Yard Duties report. Edited in the
   **Duties** tab; replace this file with the tab's download to keep changes.
@@ -119,6 +119,19 @@ duty** adds a row; ✕ removes one; **Auto-fill** gives every empty cell to the
 free teacher with the fewest duties. Teacher view shows each teacher's
 duties under their grid, Print has a "Yard duty roster" sheet, and
 **Download duties.csv** saves the roster.
+
+### Class information (Classes tab)
+
+Timetabler's [7A] screen: pick a year, and each column is a group (line)
+of classes that run at the same time, with the group's periods per cycle,
+doubles and cross-year group number at the top and its classes below, each
+with teacher, room, seats and student count. Edit in place; ◀ ▶ reorder
+groups (they are re-lettered A, B, C… like Timetabler), ✕ deletes a group
+or removes a class, "Add class…" adds one to a group, **Add group** starts
+a new column. The total periods against the cycle is shown. The table on
+the right compares each teacher's planned periods (from the groups) with
+what is timetabled. This is the plan only: it does not move lessons.
+**Download curriculum.csv** saves it.
 
 The **Teachers** tab holds each teacher's duty settings (name, email, max
 duties, no duties, days away as tick boxes per cycle day). The builder marks
@@ -191,9 +204,7 @@ as data [7A].
 
 Next, in order:
 
-1. **Class Information editor** [7A, 7E]: groups (lines) per year with
-   periods, doubles, teacher, room, seats, and cross-year groups (MRCGs),
-   saved to `curriculum.csv`.
+1. ✅ **Class Information editor** [7A, 7E] (Classes tab).
 2. **Small config screens**: rooms with seats [5]; teacher max periods,
    unavailable periods, periods off per day [4A, 1E]; periods a group may
    not use [13B]; which period pairs count as doubles [1C].
