@@ -1,7 +1,8 @@
 # Timetable tools for TASS
 
-A custom timetabling tool to replace Timetabler V10. It works only with the
-CSV files TASS imports (`TTable.txt` and `SCourse.txt`). No TASS API is used.
+A custom timetabling tool to replace Timetabler V10 (Timetabling Solutions).
+It works with the two CSV files Timetabler exports for TASS to import
+(`TTable.txt` and `SCourse.txt`). No TASS API is used.
 
 **Phase 1 (this code):** read the TASS import files, check them for clashes,
 view them, and write them back byte-for-byte so TASS imports them exactly as
@@ -70,8 +71,11 @@ reflects any unsaved edits and says so in its footer.
   Class Details report; Year 11 is listed for terms that have it.
 - **curriculum.csv**: Timetabler's Class Details report as a table: per
   year and line group, periods per cycle, doubles, class code and name,
-  student count, teacher, room, seats. Not used yet; it is the input the
-  line builder and solver will need.
+  student count, teacher, room, seats. `check` uses it to warn when a class
+  is timetabled for a different number of periods than planned. It is also
+  the input the line builder and solver will need. (Timetabler's Class
+  Staffing report holds the same data in another layout; it was checked
+  against this file and matches.)
 
 TASS period numbers map to the school day as: P1 Morning Class (before MC,
 used some days) · P2 Morning Circle 9:00 · P3+P4 Main Lesson 9:10–10:40 ·
@@ -121,6 +125,8 @@ sample export. Confirm them against the TASS import documentation.
 - **Student clash**: a student is enrolled in two classes that meet in one slot.
 - **Unknown class**: an enrolment names a class that is not in the timetable.
 - **Empty class**: a class is timetabled but has no students (warning).
+- **Period count**: a class has more or fewer periods per cycle than
+  `curriculum.csv` plans (warning; needs the config).
 
 ## Roadmap
 

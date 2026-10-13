@@ -13,7 +13,7 @@ def _load(args):
 
 def cmd_check(args):
     lessons, enrolments = _load(args)
-    issues = validate.check(lessons, enrolments)
+    issues = validate.check(lessons, enrolments, config.load(args.config)["planned"])
     print(f"{len(lessons)} timetable rows, {len({l.class_code for l in lessons})} classes, "
           f"{len({e.student_id for e in enrolments})} students")
     for kind, n in sorted(Counter(i.kind for i in issues).items()):
@@ -26,8 +26,8 @@ def cmd_check(args):
 
 def cmd_report(args):
     lessons, enrolments = _load(args)
-    issues = validate.check(lessons, enrolments)
     cfg = config.load(args.config)
+    issues = validate.check(lessons, enrolments, cfg["planned"])
     Path(args.out).write_text(report.build(lessons, enrolments, issues, cfg), encoding="utf-8")
     print(f"Wrote {args.out}")
     return 0
@@ -52,10 +52,11 @@ def main(argv=None):
         s = sub.add_parser(name, help=help_)
         s.add_argument("ttable", help="TTable.txt")
         s.add_argument("scourse", help="SCourse.txt")
+        if name in ("check", "report"):
+            s.add_argument("-c", "--config", default="config" if Path("config").is_dir() else None,
+                           help="folder with school.json, classnames.csv, curriculum.csv (default: ./config if present)")
         if name == "report":
             s.add_argument("-o", "--out", default="timetable.html")
-            s.add_argument("-c", "--config", default="config" if Path("config").is_dir() else None,
-                           help="folder with school.json and classnames.csv (default: ./config if present)")
         if name == "export":
             s.add_argument("-o", "--out-dir", default="out")
         s.set_defaults(fn=fn)

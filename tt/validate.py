@@ -24,7 +24,8 @@ def _slot_clashes(lessons, key, kind, label):
     ]
 
 
-def check(lessons, enrolments):
+def check(lessons, enrolments, planned=None):
+    """planned: optional {class_code: periods per cycle} from the curriculum file."""
     issues = []
     issues += _slot_clashes(lessons, "teacher", "teacher-clash", "Teacher")
     issues += _slot_clashes(lessons, "room", "room-clash", "Room")
@@ -64,4 +65,10 @@ def check(lessons, enrolments):
     for c in sorted(set(slots) - enrolled):
         issues.append(Issue("warning", "empty-class", None, None,
                             f"{c} is timetabled but has no students"))
+
+    for c, want in sorted((planned or {}).items()):
+        got = len(slots.get(c, ()))
+        if got and got != want:
+            issues.append(Issue("warning", "period-count", None, None,
+                                f"{c} is timetabled for {got} periods, curriculum says {want}"))
     return issues

@@ -57,6 +57,11 @@ class ValidateTests(unittest.TestCase):
         self.assertIn("900001", i.message)
         self.assertIn("C07MA_1, C07Sc_1", i.message)
 
+    def test_period_count_against_curriculum(self):
+        issues = validate.check(*load(), planned={"C07E_1": 3, "C07MA_1": 1, "C99_1": 2})
+        msgs = [i.message for i in issues if i.kind == "period-count"]
+        self.assertEqual(msgs, ["C07E_1 is timetabled for 1 periods, curriculum says 3"])  # C99_1 not timetabled: no warning
+
     def test_unknown_and_empty_classes(self):
         self.assertIn("C08Old_1", self.kinds("unknown-class")[0].message)
         self.assertIn("C12D&T_1", self.kinds("empty-class")[0].message)
@@ -86,7 +91,9 @@ class ConfigTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             (Path(d) / "school.json").write_text('{"term": "T1", "blocks": [{"name": "B1", "short": "B1", "days": [1]}]}')
             (Path(d) / "classnames.csv").write_text("code,name,block\nC07E_1,C7 English,\nC07ML_1,C7 Birthing,2\n")
+            (Path(d) / "curriculum.csv").write_text("year,group,periods,class_code\n7,7A,6,C07E_1\n7,7B,3,C07E_1\n7,7B,3,C07E_1\n7,7C,9,C07MA_1\n")
             cfg = config.load(d)
+        self.assertEqual(cfg["planned"], {"C07E_1": 9, "C07MA_1": 9})
         self.assertEqual(cfg["term"], "T1")
         self.assertEqual(cfg["blocks"][0]["name"], "B1")
         self.assertEqual(cfg["names"], [["C07E_1", "C7 English", None], ["C07ML_1", "C7 Birthing", 2]])
