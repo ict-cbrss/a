@@ -59,7 +59,8 @@ class ViewerTests(unittest.TestCase):
         self.page = self.ctx.new_page()
         self.errors = []
         self.page.on("pageerror", lambda e: self.errors.append(str(e)))
-        self.page.on("dialog", lambda d: d.accept())
+        self._dialog = lambda d: d.accept()   # confirm() dialogs are accepted; tests needing a prompt swap this
+        self.page.on("dialog", self._dialog)
         self.page.goto(self.html.as_uri())
 
     def tearDown(self):
@@ -249,6 +250,7 @@ class ViewerTests(unittest.TestCase):
         self.assertEqual(self.page.locator("#class-grid .cls[data-g='7B']").count(), 2)
         self.page.click("button[data-rm-g='7B'][data-rm-c='C12D&T_1']")
         self.assertEqual(self.page.locator("#class-grid .cls[data-g='7B']").count(), 1)
+        self.page.remove_listener("dialog", self._dialog)
         self.page.on("dialog", lambda d: d.accept("C07Geo_1") if d.type == "prompt" else d.accept())
         self.page.click("#group-add")
         self.assertEqual([th.inner_text().split("\n")[0] for th in self.page.locator("#class-grid thead th.g").all()], ["A", "B", "C"])
