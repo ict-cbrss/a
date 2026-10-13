@@ -16,6 +16,7 @@ def build(lessons, enrolments, issues):
                            key=lambda s: (s[2].zfill(3), s[1])),
         # Full rows in file order, so the page can re-export the import files.
         "lesson_fields": [f.name for f in fields(formats.Lesson)],
+        "enrolment_fields": [f.name for f in fields(formats.Enrolment)],
         "enrolments": [astuple(e) for e in enrolments],
         "issues": [asdict(i) for i in issues],
         "load": Counter(l.teacher for l in lessons),

@@ -3,138 +3,469 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Timetable Viewer</title>
+<title>Timetable Editor</title>
 <style>
 :root {
   --bg: #ffffff; --fg: #1d1d1f; --muted: #6b6b70; --line: #dcdce0;
   --head: #f3f3f5; --cell: #eef4ff; --cell-fg: #12305c;
   --bad: #fde8e8; --bad-fg: #9b1c1c; --warn-fg: #8a5a00; --accent: #2557c7;
+  --drop: #e3f7e8;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #161618; --fg: #ececf0; --muted: #9a9aa2; --line: #34343a;
     --head: #222226; --cell: #1d2b44; --cell-fg: #cfe0ff;
     --bad: #4a1f1f; --bad-fg: #ffc9c9; --warn-fg: #f2c46d; --accent: #7aa2ff;
+    --drop: #1f3b28;
   }
 }
 :root[data-theme="dark"] {
   --bg: #161618; --fg: #ececf0; --muted: #9a9aa2; --line: #34343a;
   --head: #222226; --cell: #1d2b44; --cell-fg: #cfe0ff;
   --bad: #4a1f1f; --bad-fg: #ffc9c9; --warn-fg: #f2c46d; --accent: #7aa2ff;
+  --drop: #1f3b28;
 }
 * { box-sizing: border-box; }
 body { margin: 0; padding: 16px; background: var(--bg); color: var(--fg);
   font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
 h1 { font-size: 20px; margin: 0 0 12px; }
+h2 { font-size: 16px; margin: 16px 0 8px; }
 .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
-button, select { font: inherit; color: var(--fg); background: var(--head);
+button, select, input { font: inherit; color: var(--fg); background: var(--head);
   border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; }
+button:disabled { opacity: .5; }
 button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
 select { min-width: 220px; max-width: 100%; }
-.summary { color: var(--muted); margin-bottom: 12px; }
+.summary { color: var(--muted); }
+.spacer { flex: 1; }
 .wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; }
 table { border-collapse: collapse; width: 100%; }
 th, td { border: 1px solid var(--line); padding: 4px; vertical-align: top; }
 th { background: var(--head); font-weight: 600; position: sticky; top: 0; }
-th.week { border-left: 2px solid var(--muted); }
-td.week { border-left: 2px solid var(--muted); }
-td { min-width: 92px; font-size: 12px; }
-.l { background: var(--cell); color: var(--cell-fg); border-radius: 4px; padding: 2px 4px; margin: 1px 0; }
+th.week, td.week { border-left: 2px solid var(--muted); }
+td { min-width: 92px; font-size: 12px; cursor: cell; }
+td.over { background: var(--drop); }
+.l { background: var(--cell); color: var(--cell-fg); border-radius: 4px; padding: 2px 4px;
+  margin: 1px 0; cursor: grab; }
 .l b { display: block; }
 td.clash .l { background: var(--bad); color: var(--bad-fg); }
-ul.issues { padding-left: 18px; }
+ul.issues, ul.log { padding-left: 18px; }
 ul.issues li.error { color: var(--bad-fg); }
 ul.issues li.warning { color: var(--warn-fg); }
 .hidden { display: none; }
-.spacer { flex: 1; }
+.members { display: grid; grid-template-columns: 1fr auto; gap: 6px; max-width: 640px; align-items: center; }
+.members select { min-width: 0; width: 100%; }
+dialog { border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--fg);
+  padding: 16px; max-width: 420px; width: calc(100% - 32px); }
+dialog::backdrop { background: rgba(0,0,0,.4); }
+dialog label { display: block; margin: 8px 0 4px; font-weight: 600; }
+dialog input, dialog select { width: 100%; }
+dialog .row { display: flex; gap: 8px; }
+dialog .row select { min-width: 0; flex: 1; }
+dialog .actions { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+dialog .hint { color: var(--muted); font-size: 12px; margin-top: 4px; }
+.note { color: var(--muted); font-size: 12px; margin: 8px 0; }
 </style>
 </head>
 <body>
-<h1>Timetable Viewer</h1>
+<h1>Timetable Editor</h1>
 <div class="bar" id="views"></div>
-<div class="bar"><select id="pick" aria-label="Choose"></select><span id="info" class="summary"></span>
+<div class="bar">
+  <select id="pick" aria-label="Choose"></select>
+  <span id="info" class="summary"></span>
   <span class="spacer"></span>
-  <button id="dl-ttable" type="button">Download TTable.txt</button>
-  <button id="dl-scourse" type="button">Download SCourse.txt</button></div>
+  <button id="undo" type="button">Undo</button>
+  <button id="redo" type="button">Redo</button>
+  <button id="reset" type="button">Reset</button>
+  <button id="dl-ttable" type="button" class="primary">Download TTable.txt</button>
+  <button id="dl-scourse" type="button" class="primary">Download SCourse.txt</button>
+</div>
+<p class="note" id="note"></p>
 <div id="grid" class="wrap"></div>
+<div id="members"></div>
 <div id="issues" class="hidden"></div>
+<div id="changes" class="hidden"></div>
+
+<dialog id="dlg">
+  <form method="dialog" id="dlg-form">
+    <h2 id="dlg-title" style="margin-top:0"></h2>
+    <div id="dlg-class-wrap">
+      <label for="dlg-class">Class</label>
+      <select id="dlg-class"></select>
+    </div>
+    <label>Slot</label>
+    <div class="row">
+      <select id="dlg-day" aria-label="Day"></select>
+      <select id="dlg-period" aria-label="Period"></select>
+    </div>
+    <label for="dlg-room">Room</label>
+    <input id="dlg-room" list="rooms" autocomplete="off">
+    <label for="dlg-teachers">Teachers</label>
+    <input id="dlg-teachers" list="teachers" autocomplete="off" placeholder="e.g. AH, SC">
+    <div class="hint">Comma-separated. One TTable row is written per teacher.</div>
+    <label style="font-weight:400"><input type="checkbox" id="dlg-all" style="width:auto"> Apply room and teachers to every period of this class</label>
+    <div class="actions">
+      <button type="submit" class="primary" id="dlg-save">Save</button>
+      <button type="button" id="dlg-delete">Delete lesson</button>
+      <button type="button" id="dlg-cancel">Cancel</button>
+    </div>
+  </form>
+</dialog>
+<datalist id="rooms"></datalist>
+<datalist id="teachers"></datalist>
+
 <script>
 const DATA = /*DATA*/null;
-const L = DATA.lessons;
-const days = [...new Set(L.map(l => l.day))].sort((a, b) => a - b);
-const periods = [...new Set(L.map(l => l.period))].sort((a, b) => a - b);
-const uniq = k => [...new Set(L.map(l => l[k]))].sort((a, b) => String(a).localeCompare(String(b), undefined, {numeric: true}));
-const classesOf = {};
-for (const [sid, , , c] of DATA.enrolments) (classesOf[sid] ||= new Set()).add(c);
-const studentName = Object.fromEntries(DATA.students.map(([id, n, y]) => [id, `${n} (Yr ${y}, ${id})`]));
-const counts = {};
-for (const [, , , c] of DATA.enrolments) counts[c] = (counts[c] || 0) + 1;
+const LF = DATA.lesson_fields, EF = DATA.enrolment_fields;
+const toObj = (fields, row) => Object.fromEntries(fields.map((f, i) => [f, row[i]]));
+const ORIGINAL = {
+  lessons: DATA.lessons,
+  enrolments: DATA.enrolments.map(r => toObj(EF, r)),
+};
+const clone = s => ({ lessons: s.lessons.map(l => ({...l})), enrolments: s.enrolments.map(e => ({...e})) });
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+const natural = (a, b) => String(a).localeCompare(String(b), undefined, {numeric: true});
+const slotKey = (d, p) => `${d},${p}`;
+
+// Days and periods come from the original file; new lessons can only use these.
+const days = [...new Set(ORIGINAL.lessons.map(l => l.day))].sort((a, b) => a - b);
+const periods = [...new Set(ORIGINAL.lessons.map(l => l.period))].sort((a, b) => a - b);
+
+// ---------- state, undo and persistence ----------
+let state = clone(ORIGINAL), log = [], undoStack = [], redoStack = [];
+const STORE_KEY = "tt-edits-" + hash(JSON.stringify(DATA.lessons) + JSON.stringify(DATA.enrolments));
+function hash(s) { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return (h >>> 0).toString(36); }
+function save() {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify({state, log})); } catch (e) {}
+}
+function restore() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORE_KEY));
+    if (saved && saved.log.length) { state = saved.state; log = saved.log; return true; }
+  } catch (e) {}
+  return false;
+}
+
+// Every edit goes through apply(): snapshot for undo, mutate, log, re-render.
+function apply(description, mutate) {
+  const before = clone(state);
+  const err = mutate(state);
+  if (err) { state = before; alert(err); return false; }
+  undoStack.push({state: before, log: log.slice()}); redoStack = [];
+  log.push(description);
+  save(); renderAll();
+  return true;
+}
+function undo() { if (!undoStack.length) return; redoStack.push({state, log}); ({state, log} = undoStack.pop()); save(); renderAll(); }
+function redo() { if (!redoStack.length) return; undoStack.push({state, log}); ({state, log} = redoStack.pop()); save(); renderAll(); }
+
+// ---------- derived lookups ----------
+function lessonsAt(s, cls, d, p) { return s.lessons.filter(l => l.class_code === cls && l.day === d && l.period === p); }
+function classInfo(cls) {
+  // Year and grid columns for a class, taken from any existing row.
+  const l = state.lessons.find(l => l.class_code === cls) || ORIGINAL.lessons.find(l => l.class_code === cls);
+  return l ? {year: l.year, column: l.column, block_start: l.block_start, block_end: l.block_end}
+           : {year: (state.enrolments.find(e => e.class_code === cls) || {}).year || "", column: 1, block_start: 1, block_end: 1};
+}
+function allClasses() {
+  return [...new Set([...state.lessons.map(l => l.class_code), ...state.enrolments.map(e => e.class_code)])].sort(natural);
+}
+const uniq = k => [...new Set(state.lessons.map(l => l[k]))].sort(natural);
+
+// ---------- edits ----------
+function moveLesson(cls, d1, p1, d2, p2) {
+  if (d1 === d2 && p1 === p2) return;
+  apply(`Moved ${cls} from Day ${d1} P${p1} to Day ${d2} P${p2}`, s => {
+    if (lessonsAt(s, cls, d2, p2).length) return `${cls} already has a lesson on Day ${d2} P${p2}.`;
+    for (const l of lessonsAt(s, cls, d1, p1)) { l.day = d2; l.period = p2; }
+  });
+}
+function saveLesson({cls, d1, p1, d2, p2, room, teachers, all, isNew}) {
+  if (!teachers.length) return alert("Enter at least one teacher.");
+  if (!room) return alert("Enter a room.");
+  const desc = isNew ? `Added ${cls} on Day ${d2} P${p2} (${room}, ${teachers.join(", ")})`
+    : `Edited ${cls} on Day ${d1} P${p1}` + (d1 !== d2 || p1 !== p2 ? ` → Day ${d2} P${p2}` : "")
+      + ` (${room}, ${teachers.join(", ")})` + (all ? " for every period" : "");
+  return apply(desc, s => {
+    if ((isNew || d1 !== d2 || p1 !== p2) && lessonsAt(s, cls, d2, p2).length)
+      return `${cls} already has a lesson on Day ${d2} P${p2}.`;
+    const info = classInfo(cls);
+    const slots = [[d2, p2]];
+    if (!isNew) for (const l of lessonsAt(s, cls, d1, p1)) { l.day = d2; l.period = p2; }
+    if (all) for (const l of s.lessons) if (l.class_code === cls && !(l.day === d2 && l.period === p2)) slots.push([l.day, l.period]);
+    for (const [d, p] of [...new Set(slots.map(x => slotKey(...x)))].map(k => k.split(",").map(Number))) {
+      const existing = lessonsAt(s, cls, d, p);
+      const template = existing[0] || {year: info.year, column: info.column, block_start: info.block_start, block_end: info.block_end};
+      s.lessons = s.lessons.filter(l => !existing.includes(l));
+      for (const t of teachers) s.lessons.push({day: d, period: p, year: template.year, class_code: cls, room,
+        teacher: t, column: template.column, block_start: template.block_start, block_end: template.block_end});
+    }
+  });
+}
+function deleteLesson(cls, d, p) {
+  apply(`Deleted ${cls} on Day ${d} P${p}`, s => { s.lessons = s.lessons.filter(l => !(l.class_code === cls && l.day === d && l.period === p)); });
+}
+function changeEnrolment(sid, from, to) {
+  if (from === to) return;
+  apply(`Moved ${studentLabel(sid)} from ${from} to ${to}`, s => {
+    if (s.enrolments.some(e => e.student_id === sid && e.class_code === to)) return `Already in ${to}.`;
+    for (const e of s.enrolments) if (e.student_id === sid && e.class_code === from) e.class_code = to;
+  });
+}
+function removeEnrolment(sid, cls) {
+  apply(`Removed ${studentLabel(sid)} from ${cls}`, s => { s.enrolments = s.enrolments.filter(e => !(e.student_id === sid && e.class_code === cls)); });
+}
+function addEnrolment(sid, cls) {
+  apply(`Added ${studentLabel(sid)} to ${cls}`, s => {
+    if (s.enrolments.some(e => e.student_id === sid && e.class_code === cls)) return `Already in ${cls}.`;
+    const t = s.enrolments.find(e => e.student_id === sid);
+    // Keep the student's rows together so the file stays grouped by student.
+    const i = s.enrolments.lastIndexOf(t);
+    s.enrolments.splice(i + 1, 0, {...t, class_code: cls});
+  });
+}
+
+// ---------- validation (mirrors tt/validate.py) ----------
+function check(s) {
+  const issues = [];
+  const slotClash = (key, kind, label) => {
+    const by = new Map();
+    for (const l of s.lessons) {
+      const k = `${l.day},${l.period},${l[key]}`;
+      if (!by.has(k)) by.set(k, {d: l.day, p: l.period, who: l[key], cs: new Set()});
+      by.get(k).cs.add(l.class_code);
+    }
+    for (const v of by.values()) if (v.cs.size > 1)
+      issues.push({severity: "error", kind, day: v.d, period: v.p, message: `${label} ${v.who} has ${[...v.cs].sort().join(", ")}`});
+  };
+  slotClash("teacher", "teacher-clash", "Teacher");
+  slotClash("room", "room-clash", "Room");
+  const slots = new Map();
+  for (const l of s.lessons) (slots.get(l.class_code) || slots.set(l.class_code, new Set()).get(l.class_code)).add(slotKey(l.day, l.period));
+  const byStudent = new Map();
+  for (const e of s.enrolments) {
+    (byStudent.get(e.student_id) || byStudent.set(e.student_id, new Set()).get(e.student_id)).add(e.class_code);
+    if (!slots.has(e.class_code)) issues.push({severity: "error", kind: "unknown-class", message: `${e.name} (${e.student_id}) enrolled in ${e.class_code}, which is not in the timetable`});
+  }
+  for (const [sid, cs] of byStudent) {
+    const by = new Map();
+    for (const c of cs) for (const k of slots.get(c) || []) (by.get(k) || by.set(k, new Set()).get(k)).add(c);
+    for (const [k, cc] of by) if (cc.size > 1) {
+      const [d, p] = k.split(",").map(Number);
+      issues.push({severity: "error", kind: "student-clash", day: d, period: p, message: `${studentLabel(sid)} has ${[...cc].sort().join(", ")}`});
+    }
+  }
+  const enrolled = new Set(s.enrolments.map(e => e.class_code));
+  for (const c of [...slots.keys()].sort()) if (!enrolled.has(c))
+    issues.push({severity: "warning", kind: "empty-class", message: `${c} is timetabled but has no students`});
+  issues.sort((a, b) => (a.severity > b.severity) - (a.severity < b.severity) || (a.day || 0) - (b.day || 0) || (a.period || 0) - (b.period || 0));
+  return issues;
+}
+let issues = [];
+
+// ---------- views ----------
+function students() {
+  const seen = new Map();
+  for (const e of state.enrolments) if (!seen.has(e.student_id)) seen.set(e.student_id, e);
+  return [...seen.values()].sort((a, b) => natural(a.year.padStart(3, "0") + a.name, b.year.padStart(3, "0") + b.name));
+}
+function studentLabel(sid) { const e = state.enrolments.find(e => e.student_id === sid); return e ? `${e.name} (${sid})` : sid; }
+function classesOf(sid) { return new Set(state.enrolments.filter(e => e.student_id === sid).map(e => e.class_code)); }
+function classCount(c) { return state.enrolments.filter(e => e.class_code === c).length; }
+function teacherLoad(t) { return new Set(state.lessons.filter(l => l.teacher === t).map(l => slotKey(l.day, l.period))).size; }
 
 const VIEWS = {
-  Teacher: { opts: () => uniq("teacher"), label: t => `${t} — ${DATA.load[t] || 0} periods/cycle`, match: (l, t) => l.teacher === t, clash: true },
+  Teacher: { opts: () => uniq("teacher"), label: t => `${t} — ${teacherLoad(t)} periods/cycle`, match: (l, t) => l.teacher === t, clash: true },
   Room:    { opts: () => uniq("room"), label: r => r, match: (l, r) => l.room === r, clash: true },
-  Class:   { opts: () => uniq("class_code"), label: c => `${c} — ${counts[c] || 0} students`, match: (l, c) => l.class_code === c },
+  Class:   { opts: allClasses, label: c => `${c} — ${classCount(c)} students`, match: (l, c) => l.class_code === c },
   Year:    { opts: () => uniq("year"), label: y => `Year ${y}`, match: (l, y) => l.year === y },
-  Student: { opts: () => DATA.students.map(s => s[0]), label: id => studentName[id], match: (l, id) => classesOf[id]?.has(l.class_code), clash: true },
+  Student: { opts: () => students().map(s => s.student_id), label: id => { const s = students().find(s => s.student_id === id); return `${s.name} (Yr ${s.year}, ${id})`; },
+             match: (l, id) => classesOf(id).has(l.class_code), clash: true },
   Issues:  {},
+  Changes: {},
 };
 let view = "Teacher";
-const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+const $ = id => document.getElementById(id);
 
 function renderViews() {
-  const errs = DATA.issues.filter(i => i.severity === "error").length;
-  document.getElementById("views").innerHTML = Object.keys(VIEWS).map(v =>
-    `<button aria-pressed="${v === view}" data-v="${v}">${v === "Issues" ? `Issues (${errs} errors)` : v}</button>`).join("");
+  const errs = issues.filter(i => i.severity === "error").length;
+  $("views").innerHTML = Object.keys(VIEWS).map(v => {
+    const text = v === "Issues" ? `Issues (${errs} errors)` : v === "Changes" ? `Changes (${log.length})` : v;
+    return `<button aria-pressed="${v === view}" data-v="${v}">${text}</button>`;
+  }).join("");
+  $("undo").disabled = !undoStack.length; $("redo").disabled = !redoStack.length; $("reset").disabled = !log.length;
 }
 
 function renderPick() {
-  const v = VIEWS[view], pick = document.getElementById("pick");
-  pick.classList.toggle("hidden", view === "Issues");
-  if (view === "Issues") return;
-  pick.innerHTML = v.opts().map(o => `<option value="${esc(o)}">${esc(v.label(o))}</option>`).join("");
+  const v = VIEWS[view], pick = $("pick"), prev = pick.value;
+  pick.classList.toggle("hidden", !v.opts);
+  if (!v.opts) return;
+  const opts = v.opts();
+  pick.innerHTML = opts.map(o => `<option value="${esc(o)}">${esc(v.label(o))}</option>`).join("");
+  if (opts.includes(prev)) pick.value = prev;
 }
 
 function renderGrid() {
-  const grid = document.getElementById("grid"), issues = document.getElementById("issues");
-  grid.classList.toggle("hidden", view === "Issues");
-  issues.classList.toggle("hidden", view !== "Issues");
+  const v = VIEWS[view];
+  for (const id of ["grid", "members"]) $(id).classList.toggle("hidden", !v.opts);
+  $("issues").classList.toggle("hidden", view !== "Issues");
+  $("changes").classList.toggle("hidden", view !== "Changes");
+  $("info").textContent = "";
   if (view === "Issues") {
-    issues.innerHTML = DATA.issues.length ? `<ul class="issues">${DATA.issues.map(i =>
-      `<li class="${i.severity}">${i.day ? `Day ${i.day} P${i.period}: ` : ""}${esc(i.message)}</li>`).join("")}</ul>`
-      : "<p>No issues found.</p>";
-    document.getElementById("info").textContent = "";
+    $("issues").innerHTML = issues.length ? `<ul class="issues">${issues.map(i =>
+      `<li class="${i.severity}">${i.day ? `Day ${i.day} P${i.period}: ` : ""}${esc(i.message)}</li>`).join("")}</ul>` : "<p>No issues found.</p>";
     return;
   }
-  const v = VIEWS[view], key = document.getElementById("pick").value;
-  const mine = L.filter(l => v.match(l, key));
+  if (view === "Changes") {
+    $("changes").innerHTML = log.length ? `<ul class="log">${log.map(l => `<li>${esc(l)}</li>`).join("")}</ul>`
+      : "<p>No changes yet. Drag a lesson to move it, click a lesson to edit it, or click an empty cell to add one.</p>";
+    return;
+  }
+  const key = $("pick").value;
+  const mine = state.lessons.filter(l => v.match(l, key));
   const cell = {};
-  for (const l of mine) ((cell[`${l.day},${l.period}`] ||= {})[l.class_code] ||= []).push(l);
+  for (const l of mine) ((cell[slotKey(l.day, l.period)] ||= {})[l.class_code] ||= []).push(l);
   let clashes = 0;
-  let html = `<table><thead><tr><th>Period</th>${days.map(d =>
-    `<th class="${d % 5 === 1 && d > 1 ? "week" : ""}">Day ${d}</th>`).join("")}</tr></thead><tbody>`;
+  const weekCls = d => d % 5 === 1 && d > 1 ? "week" : "";
+  let html = `<table><thead><tr><th>Period</th>${days.map(d => `<th class="${weekCls(d)}">Day ${d}</th>`).join("")}</tr></thead><tbody>`;
   for (const p of periods) {
     html += `<tr><th>P${p}</th>`;
     for (const d of days) {
-      const byClass = cell[`${d},${p}`] || {};
+      const byClass = cell[slotKey(d, p)] || {};
       const isClash = v.clash && Object.keys(byClass).length > 1;
       if (isClash) clashes++;
-      const cls = [isClash ? "clash" : "", d % 5 === 1 && d > 1 ? "week" : ""].join(" ");
-      html += `<td class="${cls}">${Object.entries(byClass).map(([c, ls]) =>
-        `<div class="l"><b>${esc(c)}</b>${esc([...new Set(ls.map(l => l.room))].join("/"))} · ${esc(ls.map(l => l.teacher).join(", "))}</div>`).join("")}</td>`;
+      html += `<td class="${isClash ? "clash" : ""} ${weekCls(d)}" data-d="${d}" data-p="${p}">${Object.entries(byClass).map(([c, ls]) =>
+        `<div class="l" draggable="true" data-c="${esc(c)}" data-d="${d}" data-p="${p}"><b>${esc(c)}</b>${esc([...new Set(ls.map(l => l.room))].join("/"))} · ${esc(ls.map(l => l.teacher).join(", "))}</div>`).join("")}</td>`;
     }
     html += "</tr>";
   }
-  grid.innerHTML = html + "</tbody></table>";
-  document.getElementById("info").textContent = `${mine.length} rows` + (v.clash ? ` · ${clashes} clashing slots` : "");
+  $("grid").innerHTML = html + "</tbody></table>";
+  $("info").textContent = `${mine.length} rows` + (v.clash ? ` · ${clashes} clashing slots` : "");
+  renderMembers(key);
 }
 
-document.getElementById("views").addEventListener("click", e => {
+function renderMembers(key) {
+  const m = $("members");
+  if (view === "Student") {
+    const classes = [...classesOf(key)].sort(natural), all = allClasses();
+    const opts = sel => all.map(c => `<option value="${esc(c)}" ${c === sel ? "selected" : ""}>${esc(c)}</option>`).join("");
+    m.innerHTML = `<h2>Classes for ${esc(studentLabel(key))}</h2><div class="members">` +
+      classes.map(c => `<select data-from="${esc(c)}" aria-label="Class">${opts(c)}</select><button type="button" data-remove="${esc(c)}">Remove</button>`).join("") +
+      `<select id="add-class" aria-label="Add class"><option value="">Add a class…</option>${all.filter(c => !classes.includes(c)).map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join("")}</select><button type="button" id="add-class-btn">Add</button></div>`;
+  } else if (view === "Class") {
+    const inClass = state.enrolments.filter(e => e.class_code === key).sort((a, b) => natural(a.name, b.name));
+    const ids = new Set(inClass.map(e => e.student_id));
+    m.innerHTML = `<h2>Students in ${esc(key)} (${inClass.length})</h2><div class="members">` +
+      inClass.map(e => `<span>${esc(e.name)} <span class="summary">(Yr ${esc(e.year)}, ${esc(e.student_id)})</span></span><button type="button" data-remove-student="${esc(e.student_id)}">Remove</button>`).join("") +
+      `<select id="add-student" aria-label="Add student"><option value="">Add a student…</option>${students().filter(s => !ids.has(s.student_id)).map(s => `<option value="${esc(s.student_id)}">${esc(s.name)} (Yr ${esc(s.year)}, ${esc(s.student_id)})</option>`).join("")}</select><button type="button" id="add-student-btn">Add</button></div>`;
+  } else m.innerHTML = "";
+}
+
+function renderAll() {
+  issues = check(state);
+  renderViews(); renderPick(); renderGrid();
+  $("rooms").innerHTML = uniq("room").map(r => `<option value="${esc(r)}">`).join("");
+  $("teachers").innerHTML = uniq("teacher").map(t => `<option value="${esc(t)}">`).join("");
+  $("note").textContent = log.length ? `${log.length} unsaved edit${log.length === 1 ? "" : "s"} — kept in this browser until you press Reset. Download both files to import into TASS.`
+    : "Drag a lesson to move it. Click a lesson to change its room or teachers. Click an empty cell to add a lesson.";
+}
+
+// ---------- lesson dialog ----------
+const dlg = $("dlg");
+let editing = null;
+function openDialog({cls, d, p, isNew}) {
+  editing = {cls, d, p, isNew};
+  $("dlg-title").textContent = isNew ? `Add lesson — Day ${d} P${p}` : `${cls} — Day ${d} P${p}`;
+  $("dlg-class-wrap").classList.toggle("hidden", !isNew);
+  if (isNew) {
+    const all = allClasses();
+    $("dlg-class").innerHTML = all.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
+    $("dlg-class").value = view === "Class" ? $("pick").value : (cls || all[0]);
+  }
+  $("dlg-day").innerHTML = days.map(x => `<option value="${x}">Day ${x}</option>`).join("");
+  $("dlg-period").innerHTML = periods.map(x => `<option value="${x}">P${x}</option>`).join("");
+  $("dlg-day").value = d; $("dlg-period").value = p;
+  $("dlg-all").checked = false;
+  $("dlg-delete").classList.toggle("hidden", isNew);
+  fillFromClass(isNew ? $("dlg-class").value : cls, isNew ? null : [d, p]);
+  dlg.showModal();
+}
+function fillFromClass(cls, slot) {
+  // Prefill room and teachers from this slot, or from the class's latest lesson.
+  const rows = slot ? lessonsAt(state, cls, ...slot) : state.lessons.filter(l => l.class_code === cls);
+  const last = rows[rows.length - 1];
+  $("dlg-room").value = last ? last.room : (view === "Room" ? $("pick").value : "");
+  const atSlot = last ? rows.filter(l => l.day === last.day && l.period === last.period) : [];
+  $("dlg-teachers").value = atSlot.length ? [...new Set(atSlot.map(l => l.teacher))].join(", ") : (view === "Teacher" ? $("pick").value : "");
+}
+$("dlg-class").addEventListener("change", e => fillFromClass(e.target.value, null));
+$("dlg-form").addEventListener("submit", e => {
+  e.preventDefault();
+  const cls = editing.isNew ? $("dlg-class").value : editing.cls;
+  const ok = saveLesson({cls, d1: editing.d, p1: editing.p, d2: Number($("dlg-day").value), p2: Number($("dlg-period").value),
+    room: $("dlg-room").value.trim(), teachers: $("dlg-teachers").value.split(",").map(t => t.trim()).filter(Boolean),
+    all: $("dlg-all").checked, isNew: editing.isNew});
+  if (ok) dlg.close();
+});
+$("dlg-delete").addEventListener("click", () => { if (confirm(`Delete ${editing.cls} on Day ${editing.d} P${editing.p}?`)) { deleteLesson(editing.cls, editing.d, editing.p); dlg.close(); } });
+$("dlg-cancel").addEventListener("click", () => dlg.close());
+
+// ---------- events ----------
+$("views").addEventListener("click", e => {
   const b = e.target.closest("button"); if (!b) return;
   view = b.dataset.v; renderViews(); renderPick(); renderGrid();
 });
-document.getElementById("pick").addEventListener("change", renderGrid);
+$("pick").addEventListener("change", renderGrid);
+$("undo").addEventListener("click", undo);
+$("redo").addEventListener("click", redo);
+$("reset").addEventListener("click", () => {
+  if (!confirm(`Discard all ${log.length} edits and go back to the original files?`)) return;
+  undoStack.push({state, log}); redoStack = []; state = clone(ORIGINAL); log = [];
+  try { localStorage.removeItem(STORE_KEY); } catch (e) {}
+  renderAll();
+});
+document.addEventListener("keydown", e => {
+  if (dlg.open || !(e.ctrlKey || e.metaKey)) return;
+  if (e.key === "z" && !e.shiftKey) { e.preventDefault(); undo(); }
+  if (e.key === "y" || (e.key === "z" && e.shiftKey)) { e.preventDefault(); redo(); }
+});
 
-// Same format as the TASS import files: unquoted CSV, CRLF line endings.
+const grid = $("grid");
+let drag = null;
+grid.addEventListener("dragstart", e => {
+  const l = e.target.closest(".l"); if (!l) return;
+  drag = {cls: l.dataset.c, d: Number(l.dataset.d), p: Number(l.dataset.p)};
+  e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", l.dataset.c);
+});
+grid.addEventListener("dragover", e => { const td = e.target.closest("td"); if (td && drag) { e.preventDefault(); td.classList.add("over"); } });
+grid.addEventListener("dragleave", e => { const td = e.target.closest("td"); if (td) td.classList.remove("over"); });
+grid.addEventListener("drop", e => {
+  const td = e.target.closest("td"); if (!td || !drag) return;
+  e.preventDefault(); td.classList.remove("over");
+  moveLesson(drag.cls, drag.d, drag.p, Number(td.dataset.d), Number(td.dataset.p)); drag = null;
+});
+grid.addEventListener("dragend", () => { drag = null; for (const td of grid.querySelectorAll("td.over")) td.classList.remove("over"); });
+grid.addEventListener("click", e => {
+  const l = e.target.closest(".l");
+  if (l) return openDialog({cls: l.dataset.c, d: Number(l.dataset.d), p: Number(l.dataset.p), isNew: false});
+  const td = e.target.closest("td"); if (!td) return;
+  openDialog({cls: null, d: Number(td.dataset.d), p: Number(td.dataset.p), isNew: true});
+});
+
+$("members").addEventListener("change", e => {
+  const sel = e.target.closest("select[data-from]"); if (sel) changeEnrolment($("pick").value, sel.dataset.from, sel.value);
+});
+$("members").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  const key = $("pick").value;
+  if (b.dataset.remove) removeEnrolment(key, b.dataset.remove);
+  else if (b.dataset.removeStudent) removeEnrolment(b.dataset.removeStudent, key);
+  else if (b.id === "add-class-btn" && $("add-class").value) addEnrolment(key, $("add-class").value);
+  else if (b.id === "add-student-btn" && $("add-student").value) addEnrolment($("add-student").value, key);
+});
+
+// ---------- download: same format as the TASS import files (unquoted CSV, CRLF) ----------
 function download(name, rows) {
   const text = rows.map(r => r.join(",") + "\r\n").join("");
   const a = document.createElement("a");
@@ -143,11 +474,13 @@ function download(name, rows) {
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
-document.getElementById("dl-ttable").addEventListener("click", () =>
-  download("TTable.txt", L.map(l => DATA.lesson_fields.map(f => l[f]))));
-document.getElementById("dl-scourse").addEventListener("click", () =>
-  download("SCourse.txt", DATA.enrolments));
-renderViews(); renderPick(); renderGrid();
+// Stable sort keeps the original row order within a slot; moved or new rows join the end of their slot.
+const sortedLessons = () => state.lessons.slice().sort((a, b) => a.day - b.day || a.period - b.period);
+$("dl-ttable").addEventListener("click", () => download("TTable.txt", sortedLessons().map(l => LF.map(f => l[f]))));
+$("dl-scourse").addEventListener("click", () => download("SCourse.txt", state.enrolments.map(e => EF.map(f => e[f]))));
+
+if (restore()) { renderAll(); $("note").textContent = `Restored ${log.length} edits from this browser. ` + $("note").textContent; }
+else renderAll();
 </script>
 </body>
 </html>

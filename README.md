@@ -17,12 +17,35 @@ python -m tt check  data/TTable.txt data/SCourse.txt          # list clashes (ex
 python -m tt report data/TTable.txt data/SCourse.txt -o data/timetable.html
 python -m tt export data/TTable.txt data/SCourse.txt -o data/out   # files ready for TASS import
 python -m unittest                                             # tests (synthetic data only)
+PLAYWRIGHT_CHROMIUM=/path/to/chromium python -m unittest       # also runs the browser tests (pip install playwright)
 ```
 
-`report` writes a single HTML file. It has teacher, room, class, year and
-student timetables, and an issues list. Open it in any browser. Its
-**Download TTable.txt / SCourse.txt** buttons save the two TASS import files,
-in the same format as the originals.
+`report` writes a single HTML file: the editor. Open it in any browser.
+
+## Editor
+
+Teacher, room, class, year and student timetables, an issues list, and a
+list of your changes. Clashing cells are red.
+
+- **Drag a lesson** to another cell to move it (every teacher row of that
+  class in that slot moves with it).
+- **Click a lesson** to change its slot, room or teachers, or delete it.
+  Tick "every period of this class" to change the room or teachers everywhere.
+- **Click an empty cell** to add a lesson; room and teachers are prefilled
+  from the class's other lessons.
+- **Student view** lists the student's classes with a dropdown to move them
+  to another class, a Remove button, and an Add box. **Class view** does the
+  same per class.
+- **Undo / Redo** (also Ctrl+Z / Ctrl+Y). **Reset** discards all edits.
+- Clash checks run after every edit; the Issues count updates live.
+- Edits are kept in the browser (localStorage) so a reload doesn't lose
+  them, but they are not written anywhere else.
+- **Download TTable.txt / SCourse.txt** save the edited files in the TASS
+  import format. With no edits they are byte-identical to the originals.
+
+New lessons copy their grid columns (TTable columns 7–9) from an existing
+lesson of the same class. Lessons can only be placed on days and periods
+that appear in the original file.
 
 ## File formats
 
@@ -70,7 +93,6 @@ sample export. Confirm them against the TASS import documentation.
 ## Roadmap
 
 1. ✅ Read, check, view and re-export the TASS import files.
-2. Editing: move a lesson, change a room or teacher, or move a student, with
-   live clash checks, then export.
+2. ✅ Editing with live clash checks, then export.
 3. Line builder: build elective lines from student subject choices.
 4. Solver (OR-Tools CP-SAT) to place classes in periods and rooms.
