@@ -20,7 +20,9 @@ python -m unittest                                             # tests (syntheti
 ```
 
 `report` writes a single HTML file. It has teacher, room, class, year and
-student timetables, and an issues list. Open it in any browser.
+student timetables, and an issues list. Open it in any browser. Its
+**Download TTable.txt / SCourse.txt** buttons save the two TASS import files,
+in the same format as the originals.
 
 ## File formats
 
