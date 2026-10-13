@@ -31,7 +31,8 @@ class ViewerTests(unittest.TestCase):
                           {"name": "Main Lesson 2", "short": "ML2", "weeks": "Weeks 4-6", "days": [2]}],
                "periods": [{"ids": [2], "name": "MC", "time": "9:00"}, {"ids": [3], "name": "Main Lesson", "time": "9:10 - 10:40"}],
                "year_order": ["12", "8", "7"],
-               "names": [["C07E_1", "C7 English", None], ["C07MA_1", "C7 Maths ML1", 1], ["C07MA_1", "C7 Maths ML2", 2]]}
+               "names": [["C07E_1", "C7 English", None], ["C07MA_1", "C7 Maths ML1", 1], ["C07MA_1", "C7 Maths ML2", 2]],
+               "duties": [[1, "Recess", "Recess top", "AA"], [1, "Lunch 1", "Lunch 1 Walk", "BB"], [2, "Recess", "Recess top", "AA"]]}
         cls.html.write_text(report.build(cls.lessons, cls.enrolments,
                                          validate.check(cls.lessons, cls.enrolments), cfg), encoding="utf-8")
         cls.pw = sync_playwright().start()
@@ -154,3 +155,15 @@ class ViewerTests(unittest.TestCase):
         self.assertEqual(self.page.locator(".sheet").count(), 1)
         self.assertEqual(self.page.locator(".sheet h2").inner_text(), "CLASS 7 TERM 4 2026 TIMETABLE — MAIN LESSON 2 WEEKS 4-6")
         self.assertIn("C12D&T_1", self.page.content())   # unnamed codes fall back to the code
+
+    def test_yard_duties_in_teacher_view_and_roster_print(self):
+        self.page.select_option("#pick", "AA")
+        self.assertIn("2 yard duties", self.page.inner_text("#info"))
+        self.assertEqual(self.page.locator("#grid .l.duty").all_inner_texts(), ["Recess top", "Recess top"])
+        self.page.click("#views button[data-v=Print]")
+        self.page.select_option("#print-year", "duties")
+        self.page.select_option("#print-block", "1")
+        sheet = self.page.locator(".sheet")
+        self.assertEqual(sheet.locator("h2").inner_text(), "TERM 4 2026 YARD DUTY ROSTER — MAIN LESSON 1 (WEEKS 1-3)")
+        self.assertIn("Recess top\tAA", sheet.inner_text())
+        self.assertIn("Lunch 1 Walk\tBB", sheet.inner_text())

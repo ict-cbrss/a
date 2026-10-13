@@ -50,6 +50,7 @@ td.over { background: var(--drop); }
   margin: 1px 0; cursor: grab; }
 .l b { display: block; }
 td.clash .l { background: var(--bad); color: var(--bad-fg); }
+.l.duty { background: var(--head); color: var(--fg); cursor: default; }
 ul.issues, ul.log { padding-left: 18px; }
 ul.issues li.error { color: var(--bad-fg); }
 ul.issues li.warning { color: var(--warn-fg); }
@@ -80,6 +81,7 @@ th small { color: var(--muted); font-weight: 400; font-size: 11px; display: bloc
 .sheet .c .nm { font-weight: 600; }
 .sheet .c .rt { white-space: nowrap; }
 .sheet .foot { color: var(--muted); font-size: 10px; margin-top: 4px; }
+.sheet th.dutyhead, .sheet td.dutyname { width: 120px; font-weight: 700; white-space: nowrap; }
 @media print {
   @page { size: A3 landscape; margin: 10mm; }
   body { padding: 0; background: #fff; color: #000; }
@@ -187,6 +189,9 @@ function className(code, d) {
   const b = blockOf(d);
   return (b && e.byBlock[b.n]) || e.all || Object.values(e.byBlock)[0] || code;
 }
+const DUTIES = CFG.duties || [];            // [day, slot, duty, teacher]
+const DUTY_SLOTS = [...new Set(DUTIES.map(d => d[1]))];
+const dutiesAt = (d, slot, who) => DUTIES.filter(x => x[0] === d && x[1] === slot && (!who || x[3] === who));
 const yearSort = (a, b) => { const o = CFG.year_order || []; const ia = o.indexOf(a), ib = o.indexOf(b);
   return (ia < 0 ? 1 : 0) - (ib < 0 ? 1 : 0) || ia - ib || natural(a, b); };
 
@@ -403,8 +408,16 @@ function renderGrid() {
     }
     html += "</tr>";
   }
+  if (view === "Teacher" && DUTIES.length) {
+    // Yard duties for this teacher, one row per time of day (read-only, from the duty roster).
+    html += `<tr><th colspan="${days.length + 1}" style="text-align:left">Yard duties</th></tr>`;
+    for (const slot of DUTY_SLOTS) {
+      html += `<tr><th>${esc(slot)}</th>` + days.map(d => `<td class="${weekCls(d)} duty">${dutiesAt(d, slot, key).map(x => `<div class="l duty">${esc(x[2])}</div>`).join("")}</td>`).join("") + "</tr>";
+    }
+  }
   $("grid").innerHTML = html + "</tbody></table>";
-  $("info").textContent = `${mine.length} rows` + (v.clash ? ` · ${clashes} clashing slots` : "");
+  const nDuties = view === "Teacher" ? DUTIES.filter(x => x[3] === key).length : 0;
+  $("info").textContent = `${mine.length} rows` + (v.clash ? ` · ${clashes} clashing slots` : "") + (nDuties ? ` · ${nDuties} yard duties` : "");
   renderMembers(key);
 }
 
@@ -433,7 +446,8 @@ function renderPrintControls() {
   const pb = bl.value, py = yr.value;
   bl.innerHTML = `<option value="">All blocks</option>` + printBlocks().map(b => `<option value="${b.n}">${esc(b.name)} ${esc(b.weeks)}</option>`).join("");
   const years = uniq("year").sort(yearSort);
-  yr.innerHTML = `<option value="">All years (master)</option>` + years.map(y => `<option value="${esc(y)}">Year ${esc(y)}</option>`).join("");
+  yr.innerHTML = `<option value="">All years (master)</option>` + years.map(y => `<option value="${esc(y)}">Year ${esc(y)}</option>`).join("")
+    + (DUTIES.length ? `<option value="duties">Yard duty roster</option>` : "");
   if ([...bl.options].some(o => o.value === pb)) bl.value = pb;
   if ([...yr.options].some(o => o.value === py)) yr.value = py;
 }
@@ -446,6 +460,20 @@ function renderPrint() {
   let html = "";
   for (const b of printBlocks()) {
     if (blockSel && String(b.n) !== blockSel) continue;
+    if (yearSel === "duties") {
+      const bdays = b.days.filter(d => days.includes(d));
+      const dutyNames = [...new Set(DUTIES.filter(x => bdays.includes(x[0])).map(x => x[1] + "\u0000" + x[2]))]
+        .map(k => k.split("\u0000")).sort((p, q) => DUTY_SLOTS.indexOf(p[0]) - DUTY_SLOTS.indexOf(q[0]) || natural(p[1], q[1]));
+      html += `<div class="sheet"><h2>${esc(`${term} Yard Duty Roster — ${b.name} (${b.weeks})`.toUpperCase().replace(/\s+/g, " ").trim())}</h2><table><thead><tr><th class="dutyhead">Duty</th>` +
+        bdays.map(d => `<th>${esc(weekdayOf(d))}</th>`).join("") + "</tr></thead><tbody>";
+      let lastSlot = null;
+      for (const [slot, duty] of dutyNames) {
+        if (slot !== lastSlot) { html += `<tr><th colspan="${bdays.length + 1}" style="text-align:left">${esc(slot)}</th></tr>`; lastSlot = slot; }
+        html += `<tr><td class="dutyname">${esc(duty)}</td>` + bdays.map(d => `<td>${esc(DUTIES.filter(x => x[0] === d && x[1] === slot && x[2] === duty).map(x => x[3]).join(", "))}</td>`).join("") + "</tr>";
+      }
+      html += `</tbody></table><div class="foot">${esc(CFG.school || "")} · from Timetabler's Yard Duties report · printed ${new Date().toLocaleDateString()}</div></div>`;
+      continue;
+    }
     const title = yearSel ? `Class ${yearSel} ${term} Timetable — ${b.name} ${b.weeks}`.toUpperCase()
                           : `${term} Master Timetable — ${b.name} (${b.weeks})`.toUpperCase();
     html += `<div class="sheet"><h2>${esc(title.replace(/\s+/g, " ").trim())}</h2><table><thead><tr><th class="day"></th><th class="yr">YR</th>` +

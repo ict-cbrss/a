@@ -10,6 +10,9 @@ A config directory holds:
   curriculum.csv  Timetabler's Class Details report: one row per class per
                   line group, with periods per cycle. Used to check that each
                   class is timetabled for its planned number of periods.
+  duties.csv      day,block,weekday,slot,duty,teacher - yard duty roster from
+                  Timetabler's Yard Duties report. Shown in the editor's
+                  Teacher view and printable as a roster; not editable yet.
 All are optional; without them the editor shows Day N / PN and class codes.
 """
 import csv
@@ -23,6 +26,7 @@ def load(directory):
     cfg = dict(DEFAULT)
     cfg["names"] = []
     cfg["planned"] = {}
+    cfg["duties"] = []
     if not directory:
         return cfg
     directory = Path(directory)
@@ -46,4 +50,8 @@ def load(directory):
                     continue
                 seen.add(key)
                 cfg["planned"][row["class_code"]] = cfg["planned"].get(row["class_code"], 0) + int(row["periods"])
+    duties = directory / "duties.csv"
+    if duties.exists():
+        with duties.open(encoding="utf-8", newline="") as f:
+            cfg["duties"] = [[int(r["day"]), r["slot"], r["duty"], r["teacher"]] for r in csv.DictReader(f)]
     return cfg

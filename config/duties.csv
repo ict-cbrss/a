@@ -1,0 +1,154 @@
+day,block,weekday,slot,duty,teacher
+1,1,Mon,Before School,Morning Duty,TWH
+1,1,Mon,Recess,Recess bottom,TC
+1,1,Mon,Recess,Recess top,VG
+1,1,Mon,Lunch 1,Lunch 1 Cola,LG
+1,1,Mon,Lunch 1,Lunch 1 Walk,BD
+1,1,Mon,Lunch 2,COLA,SBY
+1,1,Mon,Lunch 2,Lunch 2 Bottom,PP
+1,1,Mon,Lunch 2,Lunch 2 Top,AH
+1,1,Mon,After School,Bus,SV
+1,1,Mon,After School,Lock Up,LH
+2,1,Tue,Before School,Morning Duty,ARO
+2,1,Tue,Recess,Recess bottom,SC
+2,1,Tue,Recess,Recess top,SBY
+2,1,Tue,Lunch 1,Lunch 1 Cola,TWE
+2,1,Tue,Lunch 1,Lunch 1 Walk,VG
+2,1,Tue,Lunch 2,COLA,LG
+2,1,Tue,Lunch 2,Lunch 2 Bottom,PAB
+2,1,Tue,Lunch 2,Lunch 2 Top,BD
+2,1,Tue,After School,Bus,TWH
+2,1,Tue,After School,Lock Up,CS
+3,1,Wed,Before School,Morning Duty,TWE
+3,1,Wed,Recess,Recess bottom,ARO
+3,1,Wed,Recess,Recess top,LB
+3,1,Wed,Lunch 1,Lunch 1 Cola,SBY
+3,1,Wed,Lunch 1,Lunch 1 Walk,PAB
+3,1,Wed,Lunch 2,COLA,LG
+3,1,Wed,Lunch 2,Lunch 2 Bottom,SC
+3,1,Wed,Lunch 2,Lunch 2 Top,TWH
+3,1,Wed,After School,Bus,RK
+3,1,Wed,After School,Lock Up,TWE
+4,1,Thu,Before School,Morning Duty,CS
+4,1,Thu,Recess,Recess bottom,CW
+4,1,Thu,Recess,Recess top,SV
+4,1,Thu,Lunch 1,Lunch 1 Cola,ARO
+4,1,Thu,Lunch 1,Lunch 1 Walk,PAB
+4,1,Thu,Lunch 2,COLA,PP
+4,1,Thu,Lunch 2,Lunch 2 Bottom,BD
+4,1,Thu,Lunch 2,Lunch 2 Top,AH
+4,1,Thu,After School,Bus,LB
+4,1,Thu,After School,Lock Up,PN
+5,1,Fri,Before School,1,SC
+5,1,Fri,Before School,Morning Duty,PN
+5,1,Fri,Recess,Recess bottom,SZ
+5,1,Fri,Recess,Recess top,TC
+5,1,Fri,Lunch 1,Lunch 1 Cola,PP
+5,1,Fri,Lunch 1,Lunch 1 Walk,SV
+5,1,Fri,Lunch 2,COLA,CB
+5,1,Fri,Lunch 2,Lunch 2 Bottom,SC
+5,1,Fri,Lunch 2,Lunch 2 Top,AH
+5,1,Fri,After School,Bus,VG
+5,1,Fri,After School,Lock Up,RH
+6,2,Mon,Before School,Morning Duty,TWH
+6,2,Mon,Recess,Recess bottom,TC
+6,2,Mon,Recess,Recess top,VG
+6,2,Mon,Lunch 1,Lunch 1 Cola,LG
+6,2,Mon,Lunch 1,Lunch 1 Walk,BD
+6,2,Mon,Lunch 2,COLA,SBY
+6,2,Mon,Lunch 2,Lunch 2 Bottom,PP
+6,2,Mon,Lunch 2,Lunch 2 Top,AH
+6,2,Mon,After School,Bus,SV
+6,2,Mon,After School,Lock Up,LH
+7,2,Tue,Before School,Morning Duty,ARO
+7,2,Tue,Recess,Recess bottom,SC
+7,2,Tue,Recess,Recess top,SBY
+7,2,Tue,Lunch 1,Lunch 1 Cola,TWE
+7,2,Tue,Lunch 1,Lunch 1 Walk,VG
+7,2,Tue,Lunch 2,COLA,LG
+7,2,Tue,Lunch 2,Lunch 2 Bottom,PAB
+7,2,Tue,Lunch 2,Lunch 2 Top,BD
+7,2,Tue,After School,Bus,TWH
+7,2,Tue,After School,Lock Up,CS
+8,2,Wed,Before School,Morning Duty,TWE
+8,2,Wed,Recess,Recess bottom,ARO
+8,2,Wed,Recess,Recess top,LB
+8,2,Wed,Lunch 1,Lunch 1 Cola,SBY
+8,2,Wed,Lunch 1,Lunch 1 Walk,PAB
+8,2,Wed,Lunch 2,COLA,LG
+8,2,Wed,Lunch 2,Lunch 2 Bottom,SC
+8,2,Wed,Lunch 2,Lunch 2 Top,TWH
+8,2,Wed,After School,Bus,RK
+8,2,Wed,After School,Lock Up,TWE
+9,2,Thu,Before School,Morning Duty,CS
+9,2,Thu,Recess,Recess bottom,CW
+9,2,Thu,Recess,Recess top,SV
+9,2,Thu,Lunch 1,Lunch 1 Cola,ARO
+9,2,Thu,Lunch 1,Lunch 1 Walk,PAB
+9,2,Thu,Lunch 2,COLA,PP
+9,2,Thu,Lunch 2,Lunch 2 Bottom,BD
+9,2,Thu,Lunch 2,Lunch 2 Top,AH
+9,2,Thu,After School,Bus,LB
+9,2,Thu,After School,Lock Up,PN
+10,2,Fri,Before School,1,SC
+10,2,Fri,Before School,Morning Duty,PN
+10,2,Fri,Recess,Recess bottom,SZ
+10,2,Fri,Recess,Recess top,TC
+10,2,Fri,Lunch 1,Lunch 1 Cola,PP
+10,2,Fri,Lunch 1,Lunch 1 Walk,SV
+10,2,Fri,Lunch 2,COLA,CB
+10,2,Fri,Lunch 2,Lunch 2 Bottom,SC
+10,2,Fri,Lunch 2,Lunch 2 Top,AH
+10,2,Fri,After School,Bus,VG
+10,2,Fri,After School,Lock Up,RH
+11,3,Mon,Before School,Morning Duty,TWH
+11,3,Mon,Recess,Recess bottom,TC
+11,3,Mon,Recess,Recess top,VG
+11,3,Mon,Lunch 1,Lunch 1 Cola,LG
+11,3,Mon,Lunch 1,Lunch 1 Walk,BD
+11,3,Mon,Lunch 2,COLA,SBY
+11,3,Mon,Lunch 2,Lunch 2 Bottom,PP
+11,3,Mon,Lunch 2,Lunch 2 Top,AH
+11,3,Mon,After School,Bus,SV
+11,3,Mon,After School,Lock Up,LH
+12,3,Tue,Before School,Morning Duty,ARO
+12,3,Tue,Recess,Recess bottom,SC
+12,3,Tue,Recess,Recess top,SBY
+12,3,Tue,Lunch 1,Lunch 1 Cola,TWE
+12,3,Tue,Lunch 1,Lunch 1 Walk,VG
+12,3,Tue,Lunch 2,COLA,LG
+12,3,Tue,Lunch 2,Lunch 2 Bottom,PAB
+12,3,Tue,Lunch 2,Lunch 2 Top,BD
+12,3,Tue,After School,Bus,TWH
+12,3,Tue,After School,Lock Up,CS
+13,3,Wed,Before School,Morning Duty,TWE
+13,3,Wed,Recess,Recess bottom,ARO
+13,3,Wed,Recess,Recess top,LB
+13,3,Wed,Lunch 1,Lunch 1 Cola,SBY
+13,3,Wed,Lunch 1,Lunch 1 Walk,PAB
+13,3,Wed,Lunch 2,COLA,LG
+13,3,Wed,Lunch 2,Lunch 2 Bottom,SC
+13,3,Wed,Lunch 2,Lunch 2 Top,TWH
+13,3,Wed,After School,Bus,RK
+13,3,Wed,After School,Lock Up,TWE
+14,3,Thu,Before School,Morning Duty,CS
+14,3,Thu,Recess,Recess bottom,CW
+14,3,Thu,Recess,Recess top,SV
+14,3,Thu,Lunch 1,Lunch 1 Cola,ARO
+14,3,Thu,Lunch 1,Lunch 1 Walk,PAB
+14,3,Thu,Lunch 2,COLA,PP
+14,3,Thu,Lunch 2,Lunch 2 Bottom,BD
+14,3,Thu,Lunch 2,Lunch 2 Top,AH
+14,3,Thu,After School,Bus,LB
+14,3,Thu,After School,Lock Up,PN
+15,3,Fri,Before School,1,SC
+15,3,Fri,Before School,Morning Duty,PN
+15,3,Fri,Recess,Recess bottom,SZ
+15,3,Fri,Recess,Recess top,TC
+15,3,Fri,Lunch 1,Lunch 1 Cola,PP
+15,3,Fri,Lunch 1,Lunch 1 Walk,SV
+15,3,Fri,Lunch 2,COLA,CB
+15,3,Fri,Lunch 2,Lunch 2 Bottom,SC
+15,3,Fri,Lunch 2,Lunch 2 Top,AH
+15,3,Fri,After School,Bus,VG
+15,3,Fri,After School,Lock Up,RH

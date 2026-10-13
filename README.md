@@ -78,6 +78,11 @@ reflects any unsaved edits and says so in its footer.
   the input the line builder and solver will need. (Timetabler's Class
   Staffing report holds the same data in another layout; it was checked
   against this file and matches.)
+- **duties.csv**: the yard duty roster from Timetabler's Yard Duties
+  report (`day,block,weekday,slot,duty,teacher`). Shown under each
+  teacher's grid in the Teacher view, and printable from the Print tab as
+  "Yard duty roster". Read-only for now; duties are not part of the TASS
+  export.
 
 TASS period numbers map to the school day as: P1 Morning Class (before MC,
 used some days) · P2 Morning Circle 9:00 · P3+P4 Main Lesson 9:10–10:40 ·
