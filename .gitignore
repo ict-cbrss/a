@@ -10,3 +10,4 @@ rollover-report.txt
 # Local backups hold the student file
 backups/
 restored/
+.DS_Store
