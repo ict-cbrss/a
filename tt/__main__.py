@@ -8,6 +8,9 @@ from . import config, formats, report, validate
 
 
 def _load(args):
+    for path in (args.ttable, args.scourse):
+        if not Path(path).is_file():
+            sys.exit(f"{path} not found. Put TTable.txt and SCourse.txt (the TASS import files) there, or give their paths.")
     return formats.read_timetable(args.ttable), formats.read_enrolments(args.scourse)
 
 
