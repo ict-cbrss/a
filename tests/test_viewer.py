@@ -77,6 +77,8 @@ class ViewerTests(unittest.TestCase):
         self.ctx.close()
 
     def download(self, button):
+        if button in ("#dl-ttable", "#dl-scourse"):   # single-file exports live in the Files menu
+            self.page.click("#file-menu summary")
         with self.page.expect_download() as d:
             self.page.click(button)
         path = Path(self.tmp.name) / d.value.suggested_filename
@@ -333,6 +335,102 @@ class ViewerTests(unittest.TestCase):
         self.page.click("#assistant button[data-extra=plan]")
         self.page.wait_for_function("document.querySelectorAll('.ai-msg').length >= 6")
         self.assertIn("CLASS PLAN (year group periods", json.loads(calls[-1].post_data)["contents"][-1]["parts"][0]["text"])
+
+    def test_class_tools_bulk_move_rename_teacher_room(self):
+        self.page.click("#views button[data-v=Class]")
+        self.page.select_option("#pick", "C07E_1")
+        # Whole-term teacher and room change touch every lesson of the class and the plan row.
+        self.page.fill("#cls-teacher-to", "ZZ")
+        self.page.click("#cls-teacher-btn")
+        self.page.fill("#cls-room-to", "SLab")
+        self.page.click("#cls-room-btn")
+        tt = formats.read_timetable(self.download("#dl-ttable"))
+        self.assertEqual([(l.teacher, l.room) for l in tt if l.class_code == "C07E_1"], [("ZZ", "SLab")])
+        self.assertEqual(self.page.evaluate("state.classes.find(c => c.class_code === 'C07E_1').teacher"), "ZZ")
+        self.assertIn("2 errors", self.issues_button())            # the AA/G7 clash with C08E_1 is gone
+        # Bulk move: tick all, move to C07Sc_1 (student already there: just leaves C07E_1).
+        self.page.check("#sel-all")
+        self.page.select_option("#bulk-to", "C07Sc_1")
+        self.page.click("#bulk-move-btn")
+        self.assertIn("Students in C07E_1 (0)", self.page.inner_text("#members"))
+        enr = formats.read_enrolments(self.download("#dl-scourse"))
+        self.assertEqual(sorted(e.class_code for e in enr if e.student_id == "900001"), ["C07MA_1", "C07Sc_1"])
+        self.page.click("#undo")
+        self.page.select_option("#bulk-to", "C12D&T_1")
+        self.page.check("#sel-all")
+        self.page.click("#bulk-move-btn")
+        enr = formats.read_enrolments(self.download("#dl-scourse"))
+        self.assertEqual([e.class_code for e in enr if e.student_id == "900001"], ["C12D&T_1", "C07MA_1", "C07Sc_1"])
+        self.assertIn("Moved 1 students from C07E_1 to C12D&T_1", self.page.evaluate("log.join()"))
+        # Block scope: Main Lessons change teacher and title per block. C07MA_1 runs in ML1 only.
+        self.page.select_option("#pick", "C07MA_1")
+        self.page.select_option("#cls-scope", "2")
+        self.assertEqual(self.page.inner_text("#cls-teacher-from"), "")           # nobody teaches it in ML2
+        self.page.fill("#cls-title", "Ancient Greece")
+        self.page.click("#cls-title-btn")
+        self.page.select_option("#cls-scope", "1")
+        self.page.select_option("#cls-teacher-from", "CC")
+        self.page.fill("#cls-teacher-to", "EE")
+        self.page.click("#cls-teacher-btn")
+        tt = formats.read_timetable(self.download("#dl-ttable"))
+        self.assertEqual(sorted(l.teacher for l in tt if l.class_code == "C07MA_1"), ["BB", "EE"])
+        self.assertEqual(self.page.inner_text("#pick option[value=C07MA_1]"), "C7 Maths ML1 [C07MA_1] — 1 students")
+        self.assertEqual(self.page.evaluate("className('C07MA_1', 2)"), "Ancient Greece")
+        self.page.click("#save-menu summary")
+        names = self.download("#dl-classnames").read_text().splitlines()
+        self.assertEqual(names[0], "code,name,block")
+        self.assertIn("C07MA_1,Ancient Greece,2", names)
+        self.assertNotIn("C07MA_1,C7 Maths ML2,2", names)
+        # Rename the class code everywhere, titles included.
+        self.page.select_option("#pick", "C12D&T_1")
+        self.page.remove_listener("dialog", self._dialog)
+        self.page.on("dialog", lambda d: d.accept("C12DT_1") if d.type == "prompt" else d.accept())
+        self.page.click("#cls-rename-btn")
+        self.assertEqual(self.page.input_value("#pick"), "C12DT_1")
+        tt = formats.read_timetable(self.download("#dl-ttable"))
+        enr = formats.read_enrolments(self.download("#dl-scourse"))
+        self.assertEqual({l.class_code for l in tt if "DT" in l.class_code}, {"C12DT_1"})
+        self.assertEqual([e.class_code for e in enr if e.student_id == "900001"][0], "C12DT_1")
+        self.assertNotIn("C12D&T_1", self.page.evaluate("JSON.stringify(state)"))
+        self.page.select_option("#pick", "C07MA_1")
+        self.page.click("#cls-rename-btn")                                      # prompt answers C12DT_1: already exists
+        self.assertEqual(self.page.input_value("#pick"), "C07MA_1")
+
+    def test_tass_upload_view_and_export_both(self):
+        self.page.click("#views button[data-v=Student]")
+        self.page.select_option("#pick", "900002")
+        self.page.click("button[data-remove=C08Old_1]")
+        self.page.click("#views button[data-v=Teacher]")
+        self.page.select_option("#pick", "AA")
+        self.page.drag_and_drop(".l[data-c=C07E_1]", "td[data-d='2'][data-p='3']")
+        self.page.click("#views button[data-v=Upload]")
+        text = self.page.inner_text("#upload")
+        self.assertIn("files this page was built from", text)
+        self.assertIn("Differences since then: 2", text)
+        self.assertIn("1 rows removed, 1 added", text)
+        self.assertIn("Test Student Two", text)
+        self.assertIn("C08Old_1", text)
+        self.assertIn("1 error to fix", text)
+        # Export for TASS warns about errors (confirm accepted) and downloads both files.
+        got = []
+        self.page.on("download", lambda d: got.append(d.suggested_filename))
+        self.page.click("#export-tass")
+        self.page.wait_for_function("() => true")
+        self.page.wait_for_timeout(600)
+        self.assertEqual(sorted(got), ["SCourse.txt", "TTable.txt"])
+        self.assertEqual(self.page.inner_text("#app-title"), "TASS upload")
+        self.assertIn("Files exported", self.page.inner_text("#upload"))
+        # Mark as uploaded: the list empties and survives a reload; the Home card shows 0.
+        self.page.click("#upload-mark")
+        self.assertIn("no differences", self.page.inner_text("#upload"))
+        self.page.reload()
+        self.assertIn("0\ndifferences since the last TASS upload", self.page.inner_text("#home"))
+        self.page.click("#views button[data-v=Student]")
+        self.page.select_option("#pick", "900001")
+        self.page.click("button[data-remove=C07MA_1]")
+        self.page.click("#views button[data-v=Upload]")
+        self.assertIn("Last marked as uploaded to TASS", self.page.inner_text("#upload"))
+        self.assertIn("Differences since then: 1", self.page.inner_text("#upload"))
 
     def test_edits_survive_reload_and_reset_clears_them(self):
         self.page.click("#views button[data-v=Student]")

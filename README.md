@@ -55,6 +55,28 @@ New lessons copy their grid columns (TTable columns 7–9) from an existing
 lesson of the same class. Lessons can be placed on any day or period the
 config describes (or, without a config, any in the original file).
 
+### Changes during the term and re-uploading to TASS
+
+The term's loop is: change something, export both files, import them into
+TASS. The editor supports it with:
+
+- **Export for TASS** (top right) downloads `TTable.txt` and `SCourse.txt`
+  together, after a warning if the timetable has errors. The single-file
+  exports are in the Files menu.
+- **TASS upload** tab: press **Mark as uploaded** after each TASS import;
+  the tab then lists every difference since, timetable rows removed and
+  added per class, and students moved, new or gone. Until the first mark
+  it compares with the files the page was built from. The Home page shows
+  the count.
+- **Class view tools**: tick students and move them to another class or
+  remove them in one step; replace a teacher or set the room for the whole
+  term or one Main Lesson block; set the class title for the term or a
+  block (Main Lesson titles change every block; download `classnames.csv`
+  from Save settings to keep them); rename a class code everywhere
+  (timetable, enrolments, plan, titles) when a subject changes.
+- Student view still moves one student between classes, and the lesson
+  dialog changes one period or every period of a class.
+
 ### Files menu: TASS files, students, versions, backups, save as
 
 **Files ▾** (top right) works without the command line or the repo:

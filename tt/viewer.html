@@ -203,6 +203,11 @@ ul.issues li button { font-size: 11px; padding: 1px 6px; margin-left: 6px; }
 }
 .members { display: grid; grid-template-columns: 1fr auto; gap: 6px; max-width: 640px; align-items: center; }
 .members select { min-width: 0; width: 100%; }
+.members label.row { display: flex; gap: 8px; align-items: center; }
+.tools-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0 12px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--head); }
+.tools-bar input { width: 90px; }
+#upload table { margin-top: 8px; }
+#upload .minus { color: #b00020; } #upload .plus { color: #1b7f3b; }
 dialog { border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--fg);
   padding: 16px; max-width: 420px; width: calc(100% - 32px); }
 dialog::backdrop { background: rgba(0,0,0,.4); }
@@ -257,8 +262,7 @@ th small { color: var(--muted); font-weight: 400; font-size: 11px; display: bloc
   <button id="undo" type="button">Undo</button>
   <button id="redo" type="button">Redo</button>
   <button id="reset" type="button">Reset</button>
-  <button id="dl-ttable" type="button" class="primary" title="The timetable file for TASS">Export TTable.txt</button>
-  <button id="dl-scourse" type="button" class="primary" title="The enrolments file for TASS">Export SCourse.txt</button>
+  <button id="export-tass" type="button" class="primary" title="Download TTable.txt and SCourse.txt for TASS (warns about errors first)">Export for TASS</button>
   <details class="menu" id="save-menu"><summary>Save settings ▾</summary><div class="menu-body">
     <b>Put these in the repo's config/ folder</b>
     <button type="button" data-save="dl-curriculum">curriculum.csv <small>Class plan, cross-year groups, locks (Classes tab)</small></button>
@@ -266,8 +270,12 @@ th small { color: var(--muted); font-weight: 400; font-size: 11px; display: bloc
     <button type="button" data-save="dl-rooms">rooms.csv <small>Rooms, seats, unavailable periods</small></button>
     <button type="button" data-save="dl-duties">duties.csv <small>The yard duty roster</small></button>
     <button type="button" data-save="dl-school">school.json <small>Cycle, periods, doubles</small></button>
+    <button type="button" id="dl-classnames">classnames.csv <small>Class titles, including per-block Main Lesson titles</small></button>
   </div></details>
   <details class="menu" id="file-menu"><summary>Files ▾</summary><div class="menu-body">
+    <b>Export one file</b>
+    <button id="dl-ttable" type="button">TTable.txt <small>The timetable file for TASS</small></button>
+    <button id="dl-scourse" type="button">SCourse.txt <small>The enrolments file for TASS</small></button>
     <b>Load from TASS or Timetabler</b>
     <button type="button" data-load="ttable">Open TTable.txt <small>Replace the timetable with an exported file</small></button>
     <button type="button" data-load="scourse">Open SCourse.txt <small>Replace the enrolments; student data stays in this browser</small></button>
@@ -292,6 +300,7 @@ th small { color: var(--muted); font-weight: 400; font-size: 11px; display: bloc
 <div id="members"></div>
 <div id="issues" class="hidden"></div>
 <div id="changes" class="hidden"></div>
+<div id="upload" class="hidden"></div>
 <div id="assistant" class="hidden">
   <div class="settings">
     <label>Gemini API key <input type="password" id="ai-key" placeholder="AIza…" autocomplete="off"></label>
@@ -431,13 +440,15 @@ const ORIGINAL = {
   classes: ((DATA.config || {}).classes || []).map(c => ({...c})),   // curriculum rows: one per class per group
   rooms: ((DATA.config || {}).rooms || []).map(r => ({...r, unavailable: r.unavailable.map(x => x.slice())})),
   doubles: (((DATA.config || {}).doubles) || []).map(x => x.slice()),
+  names: ((DATA.config || {}).names || []).map(n => n.slice()),   // [code, name, block|null] from classnames.csv
 };
 const clone = s => ({ lessons: s.lessons.map(l => ({...l})), enrolments: s.enrolments.map(e => ({...e})),
   duties: (s.duties || []).map(d => ({...d})), dutyDefs: (s.dutyDefs || []).map(d => d.slice()),
   teachers: (s.teachers || []).map(t => ({...t, away_days: t.away_days.slice(), unavailable: (t.unavailable || []).map(x => x.slice())})),
   classes: (s.classes || []).map(c => ({...c})),
   rooms: (s.rooms || []).map(r => ({...r, unavailable: (r.unavailable || []).map(x => x.slice())})),
-  doubles: (s.doubles || []).map(x => x.slice()) });
+  doubles: (s.doubles || []).map(x => x.slice()),
+  names: (s.names || ORIGINAL.names).map(n => n.slice()) });
 const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
 const natural = (a, b) => String(a).localeCompare(String(b), undefined, {numeric: true});
 const slotKey = (d, p) => `${d},${p}`;
@@ -458,11 +469,15 @@ const pgroupOf = p => PGROUPS.find(g => g.ids.includes(p));
 const periodLabel = p => { const g = pgroupOf(p); return g ? g.name + (g.ids.length > 1 ? ` (P${p})` : "") : `P${p}`; };
 const periodTime = p => { const g = pgroupOf(p); return g ? g.time : ""; };
 const dayPeriodLabel = (d, p) => `${dayLabel(d)} ${periodLabel(p)}`;
-const NAMES = new Map();  // code -> {all: name, byBlock: {n: name}}
-for (const [code, name, block] of CFG.names || []) {
-  const e = NAMES.get(code) || NAMES.set(code, {all: null, byBlock: {}}).get(code);
-  if (block) e.byBlock[block] = name; else e.all = name;
+let NAMES = new Map();  // code -> {all: name, byBlock: {n: name}}; rebuilt from state.names on every render
+function buildNames(list) {
+  NAMES = new Map();
+  for (const [code, name, block] of list || []) {
+    const e = NAMES.get(code) || NAMES.set(code, {all: null, byBlock: {}}).get(code);
+    if (block) e.byBlock[block] = name; else e.all = name;
+  }
 }
+buildNames(CFG.names);
 function className(code, d) {
   const e = NAMES.get(code); if (!e) return code;
   const b = blockOf(d);
@@ -577,6 +592,7 @@ function restore() {
       if (!state.classes) state.classes = clone(ORIGINAL).classes;
       if (!state.rooms) state.rooms = clone(ORIGINAL).rooms;
       if (!state.doubles) state.doubles = clone(ORIGINAL).doubles;
+      if (!state.names) state.names = clone(ORIGINAL).names;
       for (const t of state.teachers) t.unavailable = t.unavailable || [];
       return true;
     }
@@ -796,13 +812,14 @@ const VIEWS = {
   Construct: {},
   Issues:  {},
   Changes: {},
+  Upload:  {},
   Print:   {},
   Assistant: {},
 };
 let view = "Home";
 const NAV = [["", ["Home"]], ["Timetable", ["Teacher", "Room", "Class", "Year", "Student"]], ["Plan", ["Classes", "Construct", "Teachers", "Rooms", "Settings"]],
-             ["Yard duties", ["Duties"]], ["Review", ["Issues", "Changes", "Print"]], ["Helper", ["Assistant"]]];
-const NAV_LABEL = {Classes: "Class plan", Teachers: "Teacher settings", Rooms: "Room settings", Settings: "Doubles", Duties: "Duty roster", Assistant: "Ask Gemini"};
+             ["Yard duties", ["Duties"]], ["Review", ["Issues", "Changes", "Upload", "Print"]], ["Helper", ["Assistant"]]];
+const NAV_LABEL = {Classes: "Class plan", Teachers: "Teacher settings", Rooms: "Room settings", Settings: "Doubles", Duties: "Duty roster", Assistant: "Ask Gemini", Upload: "TASS upload"};
 const $ = id => document.getElementById(id);
 
 function renderViews() {
@@ -842,7 +859,7 @@ function renderHome() {
       <div class="card"><div class="big ${errs ? "bad" : ""}">${errs}</div><small>error${errs === 1 ? "" : "s"} to fix before importing</small><br><button type="button" data-go="Issues">Open Issues</button></div>
       <div class="card"><div class="big ${warns ? "warn" : ""}">${warns}</div><small>warning${warns === 1 ? "" : "s"} worth a look</small><br><button type="button" data-go="Issues">See them</button></div>
       <div class="card"><div class="big">${log.length}</div><small>unsaved edit${log.length === 1 ? "" : "s"} in this browser</small><br><button type="button" data-go="Changes">Review changes</button></div>
-      <div class="card"><div class="big">${state.duties.length}</div><small>yard duties rostered</small><br><button type="button" data-go="Duties">Open duty roster</button></div>
+      <div class="card"><div class="big">${uploadDiff().total}</div><small>difference${uploadDiff().total === 1 ? "" : "s"} since the last TASS upload</small><br><button type="button" data-go="Upload">See what changed</button></div>
     </div>
     <h2>A term in steps</h2>
     <div class="steps">
@@ -850,7 +867,8 @@ function renderHome() {
       <div><span><b>Save settings to GitHub</b><small>Use <em>Save settings</em> (top right) and upload the files into the repo's config/ folder.</small></span></div>
       <div><span><b>Build the timetable in the cloud</b><small>GitHub → Actions → Build timetable → Run workflow. Download the artifact when it finishes.</small></span></div>
       <div><span><b>Review and hand-edit</b><small>Open the new editor page, check ${go("Issues", "Issues")}, then drag or click lessons in the ${go("Teacher", "Teacher")}, ${go("Room", "Room")}, ${go("Class", "Class")}, ${go("Year", "Year")} or ${go("Student", "Student")} views.</small></span></div>
-      <div><span><b>Export to TASS</b><small><em>Export TTable.txt</em> and <em>Export SCourse.txt</em> (top right), then import them into TASS as before.</small></span></div>
+      <div><span><b>Export to TASS</b><small><em>Export for TASS</em> (top right) downloads both files; import them into TASS as before, then press <em>Mark as uploaded</em> in ${go("Upload", "TASS upload")}.</small></span></div>
+      <div><span><b>Changes during the term</b><small>Move students in ${go("Student", "Student")} or several at once in ${go("Class", "Class")}; change a class's teacher, room or code for the whole term there too. ${go("Upload", "TASS upload")} lists everything TASS has not got yet; export both files again when it does.</small></span></div>
       <div><span><b>Print and email</b><small>${go("Print", "Print")} the master, a year, the duty roster or per-teacher duty sheets.</small></span></div>
     </div>`;
   $("info").textContent = "";
@@ -885,7 +903,9 @@ function renderGrid() {
   $("settings").classList.toggle("hidden", view !== "Settings");
   $("construct").classList.toggle("hidden", view !== "Construct");
   $("assistant").classList.toggle("hidden", view !== "Assistant");
+  $("upload").classList.toggle("hidden", view !== "Upload");
   $("info").textContent = "";
+  if (view === "Upload") { renderUpload(); return; }
   if (view === "Assistant") { renderAssistant(); return; }
   if (view === "Print") { renderPrint(); return; }
   if (view === "Duties") { renderDuties(); return; }
@@ -937,6 +957,10 @@ function renderGrid() {
   renderMembers(key);
 }
 
+// Class tools work on the whole term or one block: Main Lessons change teacher and title every block.
+let clsScope = "term";
+const scopeHas = (scope, d) => scope === "term" || (blockOf(d) || {}).n === Number(scope);
+const scopeLabel = scope => scope === "term" ? "for the whole term" : `in ${(BLOCKS.find(b => b.n === Number(scope)) || {}).name}`;
 function renderMembers(key) {
   const m = $("members");
   if (view === "Student") {
@@ -948,9 +972,24 @@ function renderMembers(key) {
   } else if (view === "Class") {
     const inClass = state.enrolments.filter(e => e.class_code === key).sort((a, b) => natural(a.name, b.name));
     const ids = new Set(inClass.map(e => e.student_id));
-    m.innerHTML = `<h2>Students in ${esc(key)} (${inClass.length})</h2><div class="members">` +
-      inClass.map(e => `<span>${esc(e.name)} <span class="summary">(Yr ${esc(e.year)}, ${esc(e.student_id)})</span></span><button type="button" data-remove-student="${esc(e.student_id)}">Remove</button>`).join("") +
-      `<select id="add-student" aria-label="Add student"><option value="">Add a student…</option>${students().filter(s => !ids.has(s.student_id)).map(s => `<option value="${esc(s.student_id)}">${esc(s.name)} (Yr ${esc(s.year)}, ${esc(s.student_id)})</option>`).join("")}</select><button type="button" id="add-student-btn">Add</button></div>`;
+    const mine = state.lessons.filter(l => l.class_code === key);
+    const teachers = [...new Set(mine.map(l => l.teacher))].sort(natural), rooms = [...new Set(mine.map(l => l.room))].sort(natural);
+    const others = allClasses().filter(c => c !== key);
+    const scope = clsScope, inScope = mine.filter(l => scopeHas(scope, l.day));
+    const scopeTeachers = [...new Set(inScope.map(l => l.teacher))].sort(natural), scopeRooms = [...new Set(inScope.map(l => l.room))].sort(natural);
+    const entry = NAMES.get(key) || {all: null, byBlock: {}};
+    const title = scope === "term" ? (entry.all || "") : (entry.byBlock[scope] || "");
+    m.innerHTML = `<div class="tools-bar"><label><b>Scope</b> <select id="cls-scope" aria-label="Scope"><option value="term" ${scope === "term" ? "selected" : ""}>whole term</option>${BLOCKS.length > 1 ? BLOCKS.map(b => `<option value="${b.n}" ${String(scope) === String(b.n) ? "selected" : ""}>${esc(b.name)} only</option>`).join("") : ""}</select></label>
+        <label>Replace teacher <select id="cls-teacher-from" aria-label="Teacher to replace">${scopeTeachers.map(t => `<option>${esc(t)}</option>`).join("")}</select> with <input id="cls-teacher-to" list="teachers" placeholder="code" autocomplete="off"></label><button type="button" id="cls-teacher-btn">Set</button>
+        <label>Room <input id="cls-room-to" list="rooms" placeholder="${esc(scopeRooms.join(", "))}" autocomplete="off"></label><button type="button" id="cls-room-btn">Set</button>
+        <label>Title <input id="cls-title" value="${esc(title)}" placeholder="${esc(className(key))}" style="width:200px"></label><button type="button" id="cls-title-btn">Set</button>
+        <button type="button" id="cls-rename-btn" title="Change this class code everywhere: timetable, enrolments and class plan">Rename class code…</button></div>
+      <h2>Students in ${esc(key)} (${inClass.length})</h2><div class="members">` +
+      inClass.map(e => `<label class="row"><input type="checkbox" data-sel="${esc(e.student_id)}"> ${esc(e.name)} <span class="summary">(Yr ${esc(e.year)}, ${esc(e.student_id)})</span></label><button type="button" data-remove-student="${esc(e.student_id)}">Remove</button>`).join("") +
+      `<select id="add-student" aria-label="Add student"><option value="">Add a student…</option>${students().filter(s => !ids.has(s.student_id)).map(s => `<option value="${esc(s.student_id)}">${esc(s.name)} (Yr ${esc(s.year)}, ${esc(s.student_id)})</option>`).join("")}</select><button type="button" id="add-student-btn">Add</button></div>` +
+      (inClass.length ? `<div class="tools-bar"><b>Selected students:</b> <label><input type="checkbox" id="sel-all"> all</label>
+        <select id="bulk-to" aria-label="Move to class">${others.map(c => `<option value="${esc(c)}">${esc(className(c))} [${esc(c)}]</option>`).join("")}</select><button type="button" id="bulk-move-btn">Move to this class</button>
+        <button type="button" id="bulk-remove-btn">Remove from ${esc(key)}</button></div>` : "");
   } else m.innerHTML = "";
 }
 
@@ -1243,6 +1282,10 @@ $("group-add").addEventListener("click", () => {
 $("dl-curriculum").addEventListener("click", () => {
   downloadCurriculum();
 });
+$("dl-classnames").addEventListener("click", () => {
+  const q = v => /[",\n]/.test(v) ? `"${String(v).replace(/"/g, '""')}"` : v;
+  download("classnames.csv", [["code", "name", "block"], ...state.names.slice().sort((a, b) => natural(a[0], b[0]) || (a[2] || 0) - (b[2] || 0)).map(n => [q(n[0]), q(n[1]), n[2] || ""])], "\n");
+});
 function downloadCurriculum() {
   const cols = ["year", "group", "periods", "doubles", "mrcg", "unavailable", "locked", "class_code", "class_name", "students", "teacher", "room", "seats", "class_type"];
   const q = v => /[",\n]/.test(v) ? `"${String(v).replace(/"/g, '""')}"` : v;
@@ -1490,6 +1533,7 @@ $("print-btn").addEventListener("click", () => {
 });
 
 function renderAll() {
+  buildNames(state.names);
   issues = check(state);
   renderViews(); renderPick(); renderGrid();
   $("rooms").innerHTML = uniq("room").map(r => `<option value="${esc(r)}">`).join("");
@@ -1591,7 +1635,64 @@ $("members").addEventListener("click", e => {
   else if (b.dataset.removeStudent) removeEnrolment(b.dataset.removeStudent, key);
   else if (b.id === "add-class-btn" && $("add-class").value) addEnrolment(key, $("add-class").value);
   else if (b.id === "add-student-btn" && $("add-student").value) addEnrolment($("add-student").value, key);
+  else if (b.id === "bulk-move-btn" || b.id === "bulk-remove-btn") {
+    const sel = [...document.querySelectorAll("#members input[data-sel]:checked")].map(x => x.dataset.sel);
+    if (!sel.length) return alert("Tick the students first.");
+    if (b.id === "bulk-remove-btn") apply(`Removed ${sel.length} students from ${key}`, s => { s.enrolments = s.enrolments.filter(e => !(sel.includes(e.student_id) && e.class_code === key)); });
+    else {
+      const to = $("bulk-to").value;
+      apply(`Moved ${sel.length} students from ${key} to ${to}`, s => {
+        for (const sid of sel) {
+          if (s.enrolments.some(e => e.student_id === sid && e.class_code === to)) s.enrolments = s.enrolments.filter(e => !(e.student_id === sid && e.class_code === key));
+          else for (const e of s.enrolments) if (e.student_id === sid && e.class_code === key) e.class_code = to;
+        }
+      });
+    }
+  }
+  else if (b.id === "cls-teacher-btn") {
+    const from = $("cls-teacher-from").value, to = $("cls-teacher-to").value.trim();
+    if (!to) return alert("Enter the new teacher's code.");
+    if (!from) return alert(`${key} has no lessons yet.`);
+    apply(`Replaced teacher ${from} with ${to} on ${key} ${scopeLabel(clsScope)}`, s => {
+      for (const l of s.lessons) if (l.class_code === key && l.teacher === from && scopeHas(clsScope, l.day)) l.teacher = to;
+      if (clsScope === "term") for (const c of s.classes) if (c.class_code === key && c.teacher === from) c.teacher = to;
+    });
+  }
+  else if (b.id === "cls-room-btn") {
+    const to = $("cls-room-to").value.trim();
+    if (!to) return alert("Enter the room code.");
+    apply(`Set room ${to} on every ${key} lesson ${scopeLabel(clsScope)}`, s => {
+      for (const l of s.lessons) if (l.class_code === key && scopeHas(clsScope, l.day)) l.room = to;
+      if (clsScope === "term") for (const c of s.classes) if (c.class_code === key) c.room = to;
+    });
+  }
+  else if (b.id === "cls-title-btn") {
+    const title = $("cls-title").value.trim(), block = clsScope === "term" ? null : Number(clsScope);
+    apply(`Set the title of ${key} ${scopeLabel(clsScope)} to "${title}" (download classnames.csv to keep it)`, s => {
+      s.names = s.names.filter(n => !(n[0] === key && (n[2] || null) === block));
+      if (title) s.names.push([key, title, block]);
+      if (clsScope === "term") for (const c of s.classes) if (c.class_code === key) c.class_name = title;
+    });
+  }
+  else if (b.id === "cls-rename-btn") renameClass(key);
 });
+$("members").addEventListener("change", e => {
+  if (e.target.id === "cls-scope") { clsScope = e.target.value; renderMembers($("pick").value); }
+  if (e.target.id === "sel-all") for (const x of document.querySelectorAll("#members input[data-sel]")) x.checked = e.target.checked;
+});
+function renameClass(from) {
+  const to = (prompt(`New class code for ${from} (used in TTable.txt, SCourse.txt and the class plan):`, from) || "").trim();
+  if (!to || to === from) return;
+  if (/[,\r\n]/.test(to)) return alert("A class code cannot contain commas or line breaks.");
+  if (allClasses().includes(to) || state.classes.some(c => c.class_code === to)) return alert(`${to} already exists.`);
+  const ok = apply(`Renamed class ${from} to ${to} (timetable, enrolments, class plan)`, s => {
+    for (const l of s.lessons) if (l.class_code === from) l.class_code = to;
+    for (const e of s.enrolments) if (e.class_code === from) e.class_code = to;
+    for (const c of s.classes) if (c.class_code === from) c.class_code = to;
+    for (const n of s.names) if (n[0] === from) n[0] = to;
+  });
+  if (ok && view === "Class") { renderPick(); $("pick").value = to; renderGrid(); }
+}
 
 // ---------- download: same format as the TASS import files (unquoted CSV, CRLF) ----------
 function download(name, rows, nl = "\r\n") { downloadText(name, rows.map(r => r.join(",") + nl).join("")); }
@@ -1605,6 +1706,75 @@ function downloadText(name, text, type = "text/plain") {
 // Stable sort keeps the original row order within a slot; moved or new rows join the end of their slot.
 const sortedLessons = () => state.lessons.slice().sort((a, b) => a.day - b.day || a.period - b.period);
 $("dl-ttable").addEventListener("click", () => download("TTable.txt", sortedLessons().map(l => LF.map(f => l[f]))));
+$("export-tass").addEventListener("click", () => {
+  const errs = issues.filter(i => i.severity === "error").length;
+  if (errs && !confirm(`There ${errs === 1 ? "is 1 error" : "are " + errs + " errors"} in the timetable (see Issues). TASS will take the files, but the clashes will be real. Export anyway?`)) return;
+  $("dl-ttable").click(); setTimeout(() => $("dl-scourse").click(), 300);
+  lastExport = stamp();
+  view = "Upload"; renderViews(); renderPick(); renderGrid();
+});
+// What TASS last received: remembered here so the TASS upload view can list every difference since.
+const UPLOAD_KEY = "tt-uploaded";
+let lastExport = null;
+function uploaded() {
+  try { const u = JSON.parse(localStorage.getItem(UPLOAD_KEY)); if (u && u.lessons) return u; } catch (e) {}
+  return {when: null, lessons: ORIGINAL.lessons.map(l => LF.map(f => l[f])), enrolments: ORIGINAL.enrolments.map(e => EF.map(f => e[f]))};
+}
+function markUploaded() {
+  try {
+    localStorage.setItem(UPLOAD_KEY, JSON.stringify({when: stamp(), term: CFG.term || "", lessons: sortedLessons().map(l => LF.map(f => l[f])), enrolments: state.enrolments.map(e => EF.map(f => e[f]))}));
+  } catch (e) { return alert("Could not remember the upload: this browser's storage is full."); }
+  renderAll();
+}
+function uploadDiff() {
+  const u = uploaded();
+  const count = rows => { const m = new Map(); for (const r of rows) { const k = r.join(","); m.set(k, (m.get(k) || 0) + 1); } return m; };
+  const before = count(u.lessons), after = count(sortedLessons().map(l => LF.map(f => l[f])));
+  const removed = [], added = [];
+  for (const [k, n] of before) for (let i = 0; i < n - (after.get(k) || 0); i++) removed.push(toObj(LF, k.split(",")));
+  for (const [k, n] of after) for (let i = 0; i < n - (before.get(k) || 0); i++) added.push(toObj(LF, k.split(",")));
+  const byClass = {};
+  for (const l of removed) (byClass[l.class_code] = byClass[l.class_code] || {removed: [], added: []}).removed.push(l);
+  for (const l of added) (byClass[l.class_code] = byClass[l.class_code] || {removed: [], added: []}).added.push(l);
+  const set = rows => { const m = new Map(); for (const r of rows) { const e = toObj(EF, r); (m.get(e.student_id) || m.set(e.student_id, {name: e.name, year: e.year, classes: new Set()}).get(e.student_id)).classes.add(e.class_code); } return m; };
+  const sb = set(u.enrolments), sa = set(state.enrolments.map(e => EF.map(f => e[f])));
+  const studentRows = [];
+  for (const [sid, a] of sa) {
+    const b = sb.get(sid);
+    if (!b) { studentRows.push({sid, name: a.name, year: a.year, kind: "new", added: [...a.classes], removed: []}); continue; }
+    const added2 = [...a.classes].filter(c => !b.classes.has(c)), removed2 = [...b.classes].filter(c => !a.classes.has(c));
+    if (added2.length || removed2.length || a.year !== b.year || a.name !== b.name)
+      studentRows.push({sid, name: a.name, year: a.year, kind: a.year !== b.year ? `year ${b.year} → ${a.year}` : a.name !== b.name ? `was ${b.name}` : "", added: added2, removed: removed2});
+  }
+  for (const [sid, b] of sb) if (!sa.has(sid)) studentRows.push({sid, name: b.name, year: b.year, kind: "gone", added: [], removed: [...b.classes]});
+  studentRows.sort((a, b) => natural(a.year.padStart(3, "0") + a.name, b.year.padStart(3, "0") + b.name));
+  return {when: u.when, term: u.term, byClass, removed: removed.length, added: added.length, studentRows,
+          total: Object.keys(byClass).length + studentRows.length};
+}
+function renderUpload() {
+  const d = uploadDiff(), errs = issues.filter(i => i.severity === "error").length;
+  const slot = l => `${dayLabel(Number(l.day))} ${periodLabel(Number(l.period))}`;
+  const lesson = l => `${slot(l)} (${l.room}, ${l.teacher})`;
+  let html = `<p class="note">${d.when ? `Last marked as uploaded to TASS: <b>${esc(d.when)}</b>${d.term ? ` (${esc(d.term)})` : ""}.` : "Nothing has been marked as uploaded yet, so the comparison is with the files this page was built from."}
+    ${lastExport ? ` Files exported ${esc(lastExport)}.` : ""}</p>
+    <div class="bar"><button type="button" class="primary" id="upload-export">Export for TASS</button>
+      <button type="button" id="upload-mark" ${d.total ? "" : "disabled"}>Mark as uploaded to TASS</button>
+      <span class="summary">${errs ? `<span class="bad">${errs} error${errs === 1 ? "" : "s"}</span> to fix before uploading. ` : "No errors. "}Export both files, import them into TASS, then press Mark as uploaded so this list starts again.</span></div>`;
+  if (!d.total) html += "<p>TASS has everything on this page: no differences.</p>";
+  else {
+    html += `<h2>Differences since then: ${d.total}</h2>`;
+    const classes = Object.keys(d.byClass).sort(natural);
+    if (classes.length) html += `<h3>Timetable (${d.removed} rows removed, ${d.added} added)</h3><table><tr><th>Class</th><th>Removed</th><th>Added</th></tr>` +
+      classes.map(c => `<tr><td>${esc(className(c))} [${esc(c)}]</td><td class="minus">${d.byClass[c].removed.map(l => esc(lesson(l))).join("<br>")}</td><td class="plus">${d.byClass[c].added.map(l => esc(lesson(l))).join("<br>")}</td></tr>`).join("") + "</table>";
+    if (d.studentRows.length) html += `<h3>Students (${d.studentRows.length})</h3><table><tr><th>Student</th><th>Year</th><th>Change</th><th>Out of</th><th>Into</th></tr>` +
+      d.studentRows.map(r => `<tr><td>${esc(r.name)} <span class="summary">(${esc(r.sid)})</span></td><td>${esc(r.year)}</td><td>${esc(r.kind)}</td><td class="minus">${r.removed.map(esc).join(", ")}</td><td class="plus">${r.added.map(esc).join(", ")}</td></tr>`).join("") + "</table>";
+  }
+  $("upload").innerHTML = html;
+}
+$("upload").addEventListener("click", e => {
+  if (e.target.id === "upload-export") $("export-tass").click();
+  else if (e.target.id === "upload-mark" && confirm("Mark the current timetable and enrolments as what TASS now holds?")) markUploaded();
+});
 $("dl-scourse").addEventListener("click", () => download("SCourse.txt", state.enrolments.map(e => EF.map(f => e[f]))));
 
 // ---------- Gemini helper: explains, suggests; the checker verifies and apply() applies ----------

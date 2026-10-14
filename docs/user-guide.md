@@ -32,7 +32,7 @@ The tabs across the top:
 
 | Tab | What it shows |
 | --- | --- |
-| Home | Counts, errors, unsaved edits, and the term's steps with links. |
+| Home | Counts, errors, unsaved edits, differences since the last TASS upload, and the term's steps with links. |
 | Teacher, Room, Class, Year, Student | A timetable grid for one teacher, room, class, year or student. Pick who from the dropdown. This is where you edit the timetable. |
 | Class plan | The plan: groups (lines) of classes per year, with periods, teachers and rooms. |
 | Duty roster | The yard duty roster builder. |
@@ -42,6 +42,7 @@ The tabs across the top:
 | Construct | The lines the solver will place, locks, and where each line can go. |
 | Issues | Every clash or broken rule, updated as you edit. |
 | Changes | A plain-English list of every edit you've made. |
+| TASS upload | What differs from what TASS last received; Export for TASS and Mark as uploaded. |
 | Print | Master, class and duty sheets, and per-teacher duty sheets. |
 
 **Saving.** Edits are kept in your browser until you press **Reset**, so you
@@ -50,7 +51,7 @@ them for good, download the file that holds them and put it in the right place:
 
 | Button | File | Where it goes |
 | --- | --- | --- |
-| Download TTable.txt / SCourse.txt | The timetable and enrolments | Import into TASS, and `TTable.txt` into the repo's `timetable/` folder |
+| Export for TASS | TTable.txt and SCourse.txt together | Import into TASS, and `TTable.txt` into the repo's `timetable/` folder |
 | Download curriculum.csv | The class plan and locks | `config/` in the repo |
 | Download teachers.csv, rooms.csv, duties.csv, school.json | Settings and the duty roster | `config/` in the repo |
 
@@ -133,6 +134,29 @@ warnings are worth a look:
 When you're done, **Download TTable.txt** and **Download SCourse.txt**. With no
 edits they are byte-for-byte the files you loaded, so TASS imports them exactly
 as before.
+
+## Changes during the term
+
+Most of the term is small changes: a student swaps elective, a teacher
+changes, a room moves. The loop is the same each time: change it here,
+**Export for TASS**, import both files into TASS, then **Mark as uploaded**.
+
+- **One student**: Student tab, change the class in the dropdown or Remove
+  and Add.
+- **Several students**: Class tab, tick them, pick the class in the bar
+  underneath and press Move, or Remove.
+- **Teacher or room for a class**: Class tab, the Whole term bar. Pick the
+  scope first: the whole term, or one Main Lesson block, since Main Lessons
+  change teacher each block. Replace one teacher with another, or set the
+  room on every lesson in scope.
+- **Class title**: same bar. Main Lesson titles are per block; download
+  classnames.csv from Save settings afterwards so the printed master keeps
+  the titles.
+- **Subject change**: Rename class code in the same bar changes the code in
+  the timetable, enrolments, plan and titles at once.
+- **TASS upload** tab shows everything TASS has not got yet. Export for TASS
+  warns if there are errors. After importing into TASS, press Mark as
+  uploaded so the list starts again.
 
 ## The plan: Class plan tab
 
