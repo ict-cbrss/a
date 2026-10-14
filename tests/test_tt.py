@@ -47,6 +47,10 @@ class ValidateTests(unittest.TestCase):
         self.assertEqual((i.day, i.period), (1, 2))
         self.assertIn("AA has C07E_1, C08E_1", i.message)
 
+    def test_blank_room_is_not_a_clash(self):
+        lessons = [Lesson(1, 9, "12", "C12A_1", "", "AA", 1, 1, 1), Lesson(1, 9, "12", "C12B_1", "", "BB", 1, 1, 1)]
+        self.assertEqual([i.kind for i in validate.check(lessons, [])], [])
+
     def test_team_teaching_shared_room_is_not_a_clash(self):
         # C07MA_1 has two teachers in G7 at day 1 P3; only C07E_1/C08E_1 clash in G7.
         [i] = self.kinds("room-clash")

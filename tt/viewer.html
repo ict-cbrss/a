@@ -749,6 +749,7 @@ function checkTimetable(s) {
   const slotClash = (key, kind, label) => {
     const by = new Map();
     for (const l of s.lessons) {
+      if (!String(l[key]).trim()) continue;   // a blank teacher or room is "not set", not a shared one
       const k = `${l.day},${l.period},${l[key]}`;
       if (!by.has(k)) by.set(k, {d: l.day, p: l.period, who: l[key], cs: new Set()});
       by.get(k).cs.add(l.class_code);
