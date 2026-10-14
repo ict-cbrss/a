@@ -18,7 +18,8 @@ def _slot_clashes(lessons, key, kind, label):
     """Two different classes sharing a teacher or room in the same slot."""
     by_slot = defaultdict(set)
     for l in lessons:
-        by_slot[(l.day, l.period, getattr(l, key))].add(l.class_code)
+        if getattr(l, key).strip():   # a blank teacher or room is "not set", not a shared one
+            by_slot[(l.day, l.period, getattr(l, key))].add(l.class_code)
     return [
         Issue("error", kind, d, p, f"{label} {who} has {', '.join(sorted(cs))}")
         for (d, p, who), cs in sorted(by_slot.items())
