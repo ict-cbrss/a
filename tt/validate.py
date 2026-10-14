@@ -1,4 +1,6 @@
 """Clash and consistency checks over a timetable and its enrolments."""
+from __future__ import annotations   # lets "int | None" run on Python 3.9
+
 from collections import defaultdict
 from dataclasses import dataclass
 
