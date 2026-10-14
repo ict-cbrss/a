@@ -63,11 +63,12 @@ TASS. The editor supports it with:
 - **Export for TASS** (top right) downloads `TTable.txt` and `SCourse.txt`
   together, after a warning if the timetable has errors. The single-file
   exports are in the Files menu.
-- **TASS upload** tab: press **Mark as uploaded** after each TASS import;
-  the tab then lists every difference since, timetable rows removed and
-  added per class, and students moved, new or gone. Until the first mark
-  it compares with the files the page was built from. The Home page shows
-  the count.
+- **TASS upload** tab: TASS takes the timetable and the student courses in
+  separate programs, so each file has its own **Mark as uploaded** and its
+  own list of differences since: timetable rows removed and added per
+  class; students moved, new or gone. Until the first mark a file is
+  compared with the one the page was built from. The Home page shows the
+  count.
 - **Class view tools**: tick students and move them to another class or
   remove them in one step; replace a teacher or set the room for the whole
   term or one Main Lesson block; set the class title for the term or a

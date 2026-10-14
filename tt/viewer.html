@@ -867,7 +867,7 @@ function renderHome() {
       <div><span><b>Save settings to GitHub</b><small>Use <em>Save settings</em> (top right) and upload the files into the repo's config/ folder.</small></span></div>
       <div><span><b>Build the timetable in the cloud</b><small>GitHub → Actions → Build timetable → Run workflow. Download the artifact when it finishes.</small></span></div>
       <div><span><b>Review and hand-edit</b><small>Open the new editor page, check ${go("Issues", "Issues")}, then drag or click lessons in the ${go("Teacher", "Teacher")}, ${go("Room", "Room")}, ${go("Class", "Class")}, ${go("Year", "Year")} or ${go("Student", "Student")} views.</small></span></div>
-      <div><span><b>Export to TASS</b><small><em>Export for TASS</em> (top right) downloads both files; import them into TASS as before, then press <em>Mark as uploaded</em> in ${go("Upload", "TASS upload")}.</small></span></div>
+      <div><span><b>Export to TASS</b><small><em>Export for TASS</em> (top right) downloads both files; import them into TASS as before, then press <em>Mark as uploaded</em> for each file in ${go("Upload", "TASS upload")}; TASS takes the timetable and the student courses in separate programs.</small></span></div>
       <div><span><b>Changes during the term</b><small>Move students in ${go("Student", "Student")} or several at once in ${go("Class", "Class")}; change a class's teacher, room or code for the whole term there too. ${go("Upload", "TASS upload")} lists everything TASS has not got yet; export both files again when it does.</small></span></div>
       <div><span><b>Print and email</b><small>${go("Print", "Print")} the master, a year, the duty roster or per-teacher duty sheets.</small></span></div>
     </div>`;
@@ -1716,20 +1716,24 @@ $("export-tass").addEventListener("click", () => {
 // What TASS last received: remembered here so the TASS upload view can list every difference since.
 const UPLOAD_KEY = "tt-uploaded";
 let lastExport = null;
+// TASS takes the two files in separate programs, so each has its own "last uploaded".
 function uploaded() {
-  try { const u = JSON.parse(localStorage.getItem(UPLOAD_KEY)); if (u && u.lessons) return u; } catch (e) {}
-  return {when: null, lessons: ORIGINAL.lessons.map(l => LF.map(f => l[f])), enrolments: ORIGINAL.enrolments.map(e => EF.map(f => e[f]))};
+  let u = {};
+  try { u = JSON.parse(localStorage.getItem(UPLOAD_KEY)) || {}; } catch (e) {}
+  return {ttable: u.ttable || {when: null, rows: ORIGINAL.lessons.map(l => LF.map(f => l[f]))},
+          scourse: u.scourse || {when: null, rows: ORIGINAL.enrolments.map(e => EF.map(f => e[f]))}};
 }
-function markUploaded() {
-  try {
-    localStorage.setItem(UPLOAD_KEY, JSON.stringify({when: stamp(), term: CFG.term || "", lessons: sortedLessons().map(l => LF.map(f => l[f])), enrolments: state.enrolments.map(e => EF.map(f => e[f]))}));
-  } catch (e) { return alert("Could not remember the upload: this browser's storage is full."); }
+function markUploaded(which) {
+  const u = uploaded();
+  if (which === "ttable") u.ttable = {when: stamp(), term: CFG.term || "", rows: sortedLessons().map(l => LF.map(f => l[f]))};
+  else u.scourse = {when: stamp(), term: CFG.term || "", rows: state.enrolments.map(e => EF.map(f => e[f]))};
+  try { localStorage.setItem(UPLOAD_KEY, JSON.stringify(u)); } catch (e) { return alert("Could not remember the upload: this browser's storage is full."); }
   renderAll();
 }
 function uploadDiff() {
   const u = uploaded();
   const count = rows => { const m = new Map(); for (const r of rows) { const k = r.join(","); m.set(k, (m.get(k) || 0) + 1); } return m; };
-  const before = count(u.lessons), after = count(sortedLessons().map(l => LF.map(f => l[f])));
+  const before = count(u.ttable.rows), after = count(sortedLessons().map(l => LF.map(f => l[f])));
   const removed = [], added = [];
   for (const [k, n] of before) for (let i = 0; i < n - (after.get(k) || 0); i++) removed.push(toObj(LF, k.split(",")));
   for (const [k, n] of after) for (let i = 0; i < n - (before.get(k) || 0); i++) added.push(toObj(LF, k.split(",")));
@@ -1737,7 +1741,7 @@ function uploadDiff() {
   for (const l of removed) (byClass[l.class_code] = byClass[l.class_code] || {removed: [], added: []}).removed.push(l);
   for (const l of added) (byClass[l.class_code] = byClass[l.class_code] || {removed: [], added: []}).added.push(l);
   const set = rows => { const m = new Map(); for (const r of rows) { const e = toObj(EF, r); (m.get(e.student_id) || m.set(e.student_id, {name: e.name, year: e.year, classes: new Set()}).get(e.student_id)).classes.add(e.class_code); } return m; };
-  const sb = set(u.enrolments), sa = set(state.enrolments.map(e => EF.map(f => e[f])));
+  const sb = set(u.scourse.rows), sa = set(state.enrolments.map(e => EF.map(f => e[f])));
   const studentRows = [];
   for (const [sid, a] of sa) {
     const b = sb.get(sid);
@@ -1748,32 +1752,31 @@ function uploadDiff() {
   }
   for (const [sid, b] of sb) if (!sa.has(sid)) studentRows.push({sid, name: b.name, year: b.year, kind: "gone", added: [], removed: [...b.classes]});
   studentRows.sort((a, b) => natural(a.year.padStart(3, "0") + a.name, b.year.padStart(3, "0") + b.name));
-  return {when: u.when, term: u.term, byClass, removed: removed.length, added: added.length, studentRows,
+  return {ttable: u.ttable, scourse: u.scourse, byClass, removed: removed.length, added: added.length, studentRows,
           total: Object.keys(byClass).length + studentRows.length};
 }
 function renderUpload() {
   const d = uploadDiff(), errs = issues.filter(i => i.severity === "error").length;
   const slot = l => `${dayLabel(Number(l.day))} ${periodLabel(Number(l.period))}`;
   const lesson = l => `${slot(l)} (${l.room}, ${l.teacher})`;
-  let html = `<p class="note">${d.when ? `Last marked as uploaded to TASS: <b>${esc(d.when)}</b>${d.term ? ` (${esc(d.term)})` : ""}.` : "Nothing has been marked as uploaded yet, so the comparison is with the files this page was built from."}
-    ${lastExport ? ` Files exported ${esc(lastExport)}.` : ""}</p>
+  const since = u => u.when ? `last marked as uploaded <b>${esc(u.when)}</b>${u.term ? ` (${esc(u.term)})` : ""}` : "not marked as uploaded yet, so compared with the file this page was built from";
+  const classes = Object.keys(d.byClass).sort(natural);
+  let html = `<p class="note">TASS takes the two files in separate programs (Timetable, and Student Courses), so each is tracked on its own. Export, import into TASS, then mark that file as uploaded so its list starts again.${lastExport ? ` Files exported ${esc(lastExport)}.` : ""}</p>
     <div class="bar"><button type="button" class="primary" id="upload-export">Export for TASS</button>
-      <button type="button" id="upload-mark" ${d.total ? "" : "disabled"}>Mark as uploaded to TASS</button>
-      <span class="summary">${errs ? `<span class="bad">${errs} error${errs === 1 ? "" : "s"}</span> to fix before uploading. ` : "No errors. "}Export both files, import them into TASS, then press Mark as uploaded so this list starts again.</span></div>`;
-  if (!d.total) html += "<p>TASS has everything on this page: no differences.</p>";
-  else {
-    html += `<h2>Differences since then: ${d.total}</h2>`;
-    const classes = Object.keys(d.byClass).sort(natural);
-    if (classes.length) html += `<h3>Timetable (${d.removed} rows removed, ${d.added} added)</h3><table><tr><th>Class</th><th>Removed</th><th>Added</th></tr>` +
-      classes.map(c => `<tr><td>${esc(className(c))} [${esc(c)}]</td><td class="minus">${d.byClass[c].removed.map(l => esc(lesson(l))).join("<br>")}</td><td class="plus">${d.byClass[c].added.map(l => esc(lesson(l))).join("<br>")}</td></tr>`).join("") + "</table>";
-    if (d.studentRows.length) html += `<h3>Students (${d.studentRows.length})</h3><table><tr><th>Student</th><th>Year</th><th>Change</th><th>Out of</th><th>Into</th></tr>` +
-      d.studentRows.map(r => `<tr><td>${esc(r.name)} <span class="summary">(${esc(r.sid)})</span></td><td>${esc(r.year)}</td><td>${esc(r.kind)}</td><td class="minus">${r.removed.map(esc).join(", ")}</td><td class="plus">${r.added.map(esc).join(", ")}</td></tr>`).join("") + "</table>";
-  }
+      <span class="summary">${errs ? `<span class="bad">${errs} error${errs === 1 ? "" : "s"}</span> to fix before uploading.` : "No errors."}</span></div>
+    <h2>TTable.txt — timetable: ${classes.length ? `${classes.length} class${classes.length === 1 ? "" : "es"} changed (${d.removed} rows removed, ${d.added} added)` : "no differences"}</h2>
+    <div class="bar"><span class="summary">${since(d.ttable)}.</span> <button type="button" data-mark="ttable" ${classes.length ? "" : "disabled"}>Mark TTable.txt as uploaded</button></div>`;
+  if (classes.length) html += `<table><tr><th>Class</th><th>Removed</th><th>Added</th></tr>` +
+    classes.map(c => `<tr><td>${esc(className(c))} [${esc(c)}]</td><td class="minus">${d.byClass[c].removed.map(l => esc(lesson(l))).join("<br>")}</td><td class="plus">${d.byClass[c].added.map(l => esc(lesson(l))).join("<br>")}</td></tr>`).join("") + "</table>";
+  html += `<h2>SCourse.txt — student courses: ${d.studentRows.length ? `${d.studentRows.length} student${d.studentRows.length === 1 ? "" : "s"} changed` : "no differences"}</h2>
+    <div class="bar"><span class="summary">${since(d.scourse)}.</span> <button type="button" data-mark="scourse" ${d.studentRows.length ? "" : "disabled"}>Mark SCourse.txt as uploaded</button></div>`;
+  if (d.studentRows.length) html += `<table><tr><th>Student</th><th>Year</th><th>Change</th><th>Out of</th><th>Into</th></tr>` +
+    d.studentRows.map(r => `<tr><td>${esc(r.name)} <span class="summary">(${esc(r.sid)})</span></td><td>${esc(r.year)}</td><td>${esc(r.kind)}</td><td class="minus">${r.removed.map(esc).join(", ")}</td><td class="plus">${r.added.map(esc).join(", ")}</td></tr>`).join("") + "</table>";
   $("upload").innerHTML = html;
 }
 $("upload").addEventListener("click", e => {
   if (e.target.id === "upload-export") $("export-tass").click();
-  else if (e.target.id === "upload-mark" && confirm("Mark the current timetable and enrolments as what TASS now holds?")) markUploaded();
+  else if (e.target.dataset.mark && confirm(`Mark the current ${e.target.dataset.mark === "ttable" ? "timetable (TTable.txt)" : "student courses (SCourse.txt)"} as what TASS now holds?`)) markUploaded(e.target.dataset.mark);
 });
 $("dl-scourse").addEventListener("click", () => download("SCourse.txt", state.enrolments.map(e => EF.map(f => e[f]))));
 

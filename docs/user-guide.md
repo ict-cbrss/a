@@ -154,9 +154,11 @@ changes, a room moves. The loop is the same each time: change it here,
   the titles.
 - **Subject change**: Rename class code in the same bar changes the code in
   the timetable, enrolments, plan and titles at once.
-- **TASS upload** tab shows everything TASS has not got yet. Export for TASS
-  warns if there are errors. After importing into TASS, press Mark as
-  uploaded so the list starts again.
+- **TASS upload** tab shows everything TASS has not got yet, one list per
+  file, because the timetable and the student courses are uploaded in
+  separate TASS programs. Export for TASS warns if there are errors. After
+  importing a file into TASS, press its Mark as uploaded so that list
+  starts again.
 
 ## The plan: Class plan tab
 
