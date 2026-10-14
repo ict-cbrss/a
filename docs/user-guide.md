@@ -329,6 +329,19 @@ or why it can't be done, with the error count before and after. **Apply**
 makes them one undoable edit. Student names are not sent unless you tick
 **Include student names**.
 
+Also on the tab:
+
+- **Cover**: choose the day, type the codes of the teachers away, press
+  Suggest cover. You get a cover sheet with each lesson, its room, who
+  usually takes it and who covers, each checked as free. Print it; the
+  timetable is not changed.
+- **Fill empty duties**: Gemini proposes, the page checks caps, days away
+  and clashes, and adds the ones that pass to the roster (undoable).
+- **Review the plan**, **Summarise loads**, **Draft staff email**: written
+  answers; Copy puts them on the clipboard.
+- **Ask Gemini** next to any line in Issues explains that issue and the
+  options.
+
 ## Printing and PDFs
 
 The **Print** tab lays out the sheets the school is used to:

@@ -100,8 +100,26 @@ JSON list of moves; the page tries those moves on a copy, shows each one as
 ok or why not, shows the error count before and after, and offers to apply
 the ones that check out. Applying is an ordinary undoable edit.
 
-Good uses: explaining why something is red and the options, finding a swap
-that frees a teacher or room, who is free when, drafting a note to staff.
+What it can do, each verified by the page before anything changes:
+
+- **Cover** for the daily organiser: pick the day and the teachers away;
+  the page works out who is free for each of their lessons (not teaching,
+  not away, not unavailable, with their load and duties that day) and
+  Gemini proposes a fair spread. The result is a printable cover sheet; the
+  timetable itself is not changed.
+- **Fill empty duties**: proposals are checked against caps, no-duty
+  teachers, away days, double-booking and lessons during the slot, and the
+  good ones are added to the roster as one undoable edit.
+- **Suggest fixes** and natural-language edits ("swap C09Sc_1 and
+  C09His_1 on Day 4") come back as moves, tried on a copy with the error
+  count before and after.
+- **Review the plan** before the solver runs: it sees the class plan,
+  planned teacher loads and room seats and lists what will make the
+  timetable hard or impossible.
+- **Summarise loads**: heaviest and lightest teachers, long runs, uneven
+  days, rooms over capacity.
+- **Ask Gemini** on any line of the Issues tab explains it and the options.
+- **Draft staff email** and any other writing; every reply has a Copy button.
 
 ### Print view
 

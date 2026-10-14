@@ -294,6 +294,46 @@ class ViewerTests(unittest.TestCase):
         self.page.wait_for_selector("button[data-ai-apply]")
         self.assertIn("900001 Test Student One 7:", json.loads(calls[-1].post_data)["contents"][-1]["parts"][0]["text"])
 
+    def test_gemini_cover_duties_and_issue_explain(self):
+        import json
+        calls = []
+        reply = ('Cover and duties.\n```json\n{"covers": [{"class": "C07E_1", "day": 1, "period": 2, "teacher": "BB"}, '
+                 '{"class": "C08E_1", "day": 1, "period": 2, "teacher": "DD"}]}\n```\n```json\n'
+                 '{"duties": [{"day": 2, "slot": "Lunch 1", "duty": "Lunch 1 Walk", "teacher": "DD"}, '
+                 '{"day": 1, "slot": "Recess", "duty": "Recess top", "teacher": "BB"}, {"day": 2, "slot": "Lunch 1", "duty": "Lunch 1 Walk", "teacher": "CC"}]}\n```')
+        self.page.route("https://generativelanguage.googleapis.com/**", lambda route, request: (calls.append(request),
+                        route.fulfill(json={"candidates": [{"content": {"parts": [{"text": reply}]}}]})))
+        self.page.click("#views button[data-v=Assistant]")
+        self.page.fill("#ai-key", "AIza-test")
+        self.page.select_option("#cover-day", "1")
+        self.page.fill("#cover-teachers", "AA")
+        self.page.click("#cover-btn")
+        self.page.wait_for_selector(".cover-print")
+        text = json.loads(calls[-1].post_data)["contents"][-1]["parts"][0]["text"]
+        self.assertIn("COVER NEEDED on day 1", text)
+        self.assertIn('P2 C07E_1 "C7 English" G7 1 students', text)
+        self.assertIn("P2: BB(3, on duty) CC(3) DD(3) PP(free all day)", text)   # DD is away on day 2 only
+        sheet = self.page.inner_text(".cover-print")
+        self.assertIn("MC\tC7 English [C07E_1]\tG7\tAA\tBB\tfree", sheet)
+        log = self.page.inner_text("#ai-log")
+        self.assertIn("already assigned", log)                     # Recess top day 1 is AA's
+        self.assertIn("DD is away on day 2", log)
+        self.assertIn("Add the 1 duties that check out", log)
+        self.page.click("button[data-ai-duties]")
+        self.page.click("#views button[data-v=Duties]")
+        self.assertIn("1 yard duties suggested by Gemini", self.page.evaluate("log.join()"))
+        self.assertEqual(self.page.evaluate("state.duties.filter(d => d.teacher === 'CC').map(d => d.day + ' ' + d.duty)"), ["2 Lunch 1 Walk"])
+        # Each issue has an Ask Gemini button that sends the question with the issue text.
+        self.page.click("#views button[data-v=Issues]")
+        self.page.click("ul.issues li button[data-ask]")
+        self.page.wait_for_function(f"document.querySelectorAll('.ai-msg').length >= 4")
+        self.assertEqual(self.page.inner_text("#app-title"), "Ask Gemini")
+        self.assertIn("Explain this issue", json.loads(calls[-1].post_data)["contents"][-1]["parts"][0]["text"])
+        # Plan review carries the class plan.
+        self.page.click("#assistant button[data-extra=plan]")
+        self.page.wait_for_function("document.querySelectorAll('.ai-msg').length >= 6")
+        self.assertIn("CLASS PLAN (year group periods", json.loads(calls[-1].post_data)["contents"][-1]["parts"][0]["text"])
+
     def test_edits_survive_reload_and_reset_clears_them(self):
         self.page.click("#views button[data-v=Student]")
         self.page.select_option("#pick", "900002")

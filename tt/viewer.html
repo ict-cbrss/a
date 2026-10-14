@@ -193,6 +193,14 @@ ul.issues li.warning { color: var(--warn-fg); }
 .ai-msg table { margin-top: 8px; white-space: normal; }
 .ai-msg .bad { color: #b00020; }
 .ai-msg.error { border-color: #b00020; }
+.ai-msg .tools { float: right; }
+.ai-msg .tools button { font-size: 12px; padding: 2px 8px; margin-left: 4px; }
+ul.issues li button { font-size: 11px; padding: 1px 6px; margin-left: 6px; }
+#assistant .cover { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0 12px; }
+@media print {
+  body.print-cover .app > * { display: none !important; }
+  body.print-cover .cover-print.printing { display: block !important; position: absolute; left: 0; top: 0; width: 100%; padding: 16px; }
+}
 .members { display: grid; grid-template-columns: 1fr auto; gap: 6px; max-width: 640px; align-items: center; }
 .members select { min-width: 0; width: 100%; }
 dialog { border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--fg);
@@ -292,12 +300,23 @@ th small { color: var(--muted); font-weight: 400; font-size: 11px; display: bloc
     <label><input type="checkbox" id="ai-students"> Include student names</label>
     <span id="ai-status" class="summary"></span>
   </div>
-  <textarea id="ai-q" placeholder="Ask about the timetable: why is something red, what could move where, who is free when…"></textarea>
+  <div class="cover">
+    <b>Cover:</b>
+    <select id="cover-day" aria-label="Day"></select>
+    <input id="cover-teachers" placeholder="Teachers away, e.g. LB, CW" style="width:220px" autocomplete="off">
+    <button type="button" id="cover-btn">Suggest cover</button>
+    <span class="summary">Finds who is free for each of their lessons that day; Gemini picks fairly; nothing in the timetable changes.</span>
+  </div>
+  <textarea id="ai-q" placeholder="Ask about the timetable: why is something red, what could move where, who is free when… or tell it an edit: swap C09Sc_1 and C09His_1 on Day 4."></textarea>
   <div class="quick">
     <button type="button" id="ai-ask" class="primary">Ask</button>
     <button type="button" data-q="Explain each current issue in plain words and what my options are to fix it.">Explain the issues</button>
     <button type="button" data-q="Suggest moves that remove the current errors without creating new clashes or breaking teacher availability. Give the moves as JSON.">Suggest fixes</button>
     <button type="button" data-q="Which teachers and rooms are free on Day 1, period 5?">Who is free…</button>
+    <button type="button" data-extra="plan" data-q="Review the class plan before the solver runs: which teachers, rooms or groups make it hard or impossible to timetable (too many periods for the days available, away days against load, doubles that cannot fit, rooms shared by classes in the same group)? List concrete risks with numbers.">Review the plan</button>
+    <button type="button" data-extra="duties" data-q="Fill the empty yard duties fairly: spread them so teachers with the fewest duties get the next ones, respect caps, no-duty teachers and away days, and never put a teacher on a duty that clashes with a lesson. Give the assignments as JSON duties.">Fill empty duties</button>
+    <button type="button" data-extra="loads" data-q="Summarise teacher loads and spread: who is heaviest and lightest per cycle, who has long runs of consecutive lessons or very uneven days, and which rooms are over capacity for their classes.">Summarise loads</button>
+    <button type="button" data-q="Draft a short, friendly email to all teaching staff announcing the new timetable for this term: what changed in general terms, when it starts, where to find their personal timetable and duty sheet, and who to contact about problems. Leave placeholders in square brackets for anything you do not know.">Draft staff email</button>
     <button type="button" id="ai-clear">Clear</button>
   </div>
   <div id="ai-log"></div>
@@ -799,6 +818,11 @@ function renderViews() {
   const ce = $("chip-edits"); ce.textContent = log.length ? `${log.length} unsaved edit${log.length === 1 ? "" : "s"}` : "No edits"; ce.className = "chip";
 }
 $("chip-issues").addEventListener("click", () => { view = "Issues"; renderViews(); renderPick(); renderGrid(); });
+$("issues").addEventListener("click", e => {
+  const b = e.target.closest("button[data-ask]"); if (!b) return;
+  view = "Assistant"; renderViews(); renderPick(); renderGrid();
+  askGemini(`Explain this issue in plain words and list my options to fix it, with the trade-offs: ${b.dataset.ask}`);
+});
 $("chip-edits").addEventListener("click", () => { view = "Changes"; renderViews(); renderPick(); renderGrid(); });
 $("save-menu").addEventListener("click", e => {
   const b = e.target.closest("button[data-save]"); if (!b) return;
@@ -872,7 +896,7 @@ function renderGrid() {
   if (view === "Construct") { renderConstruct(); return; }
   if (view === "Issues") {
     $("issues").innerHTML = issues.length ? `<ul class="issues">${issues.map(i =>
-      `<li class="${i.severity}">${i.day ? `${esc(i.period ? dayPeriodLabel(i.day, i.period) : dayLabel(i.day))}: ` : ""}${esc(i.message)}</li>`).join("")}</ul>` : "<p>No issues found.</p>";
+      `<li class="${i.severity}">${i.day ? `${esc(i.period ? dayPeriodLabel(i.day, i.period) : dayLabel(i.day))}: ` : ""}${esc(i.message)}<button type="button" data-ask="${esc((i.day ? `${dayPeriodLabel(i.day, i.period || periods[0])}: ` : "") + i.message)}" title="Ask Gemini to explain this and the options">Ask Gemini</button></li>`).join("")}</ul>` : "<p>No issues found.</p>";
     return;
   }
   if (view === "Changes") {
@@ -1588,7 +1612,45 @@ const AI_KEY = "tt-gemini-key", AI_MODEL = "tt-gemini-model", AI_DEFAULT_MODEL =
 const aiHistory = [];   // {role: "user"|"model"|"error", text, moves?}
 const lsGet = (k, d = "") => { try { return localStorage.getItem(k) || d; } catch (e) { return d; } };
 const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
-function aiContext(withStudents) {
+function planContext() {
+  const load = {};
+  for (const c of state.classes) if (c.teacher) load[c.teacher] = (load[c.teacher] || 0) + Number(c.periods || 0);
+  return ["CLASS PLAN (year group periods doubles mrcg teacher room seats students locked class):",
+    ...state.classes.map(c => `${c.year} ${c.group} ${c.periods} ${c.doubles || 0} ${c.mrcg || "-"} ${c.teacher || "-"} ${c.room || "-"} ${c.seats || "-"} ${c.students || "-"} ${c.locked ? "locked" : "-"} ${c.class_code}`),
+    `PLANNED TEACHER LOADS (periods per cycle of ${days.length} days): ` + Object.entries(load).sort((a, b) => b[1] - a[1]).map(([t, n]) => `${t}=${n}`).join(", "),
+    `ROOMS (code seats): ` + state.rooms.map(r => `${r.code}=${r.seats || "?"}`).join(", ")].join("\n");
+}
+function dutyContext() {
+  const count = t => state.duties.filter(x => x.teacher === t).length;
+  const empty = [];
+  for (const [slot, duty] of dutyRows()) for (const d of days) if (!state.duties.some(x => x.day === d && x.slot === slot && x.duty === duty)) empty.push(`${d} ${slot} | ${duty}`);
+  return [`DUTY SLOTS: ${DUTY_SLOTS_CFG.map(x => `${x.name}${x.conflicts.length ? " (clashes with P" + x.conflicts.join(",P") + ")" : ""}`).join("; ")}`,
+    `EMPTY DUTIES (day slot | duty): ${empty.join("; ") || "none"}`,
+    `TEACHER DUTY STATUS (code: duties so far / cap, flags): ` + allTeachers().map(t => { const x = teacherOf(t); return `${t}: ${count(t)}/${x.max_duties == null ? "-" : x.max_duties}${x.no_duties ? " NO DUTIES" : ""}${x.away_days.length ? " away " + x.away_days.join(",") : ""}`; }).join("; "),
+    `TEACHING PERIODS PER DAY (for duty clashes, see slot clashes above): ` + allTeachers().map(t => `${t}: ` + days.map(d => `${d}[${[...new Set(state.lessons.filter(l => l.teacher === t && l.day === d).map(l => l.period))].sort((a, b) => a - b).join(",")}]`).join(" ")).join("; ")].join("\n");
+}
+function loadContext() {
+  return "TEACHER LOADS (periods/cycle; per day lists periods taught): " + allTeachers().map(t => `${t}=${teacherLoad(t)} ` + days.map(d => `${d}[${[...new Set(state.lessons.filter(l => l.teacher === t && l.day === d).map(l => l.period))].sort((a, b) => a - b).join(",")}]`).join(" ")).join("; ")
+    + "\nROOM SEATS vs CLASS SIZES: " + state.rooms.filter(r => r.seats).map(r => `${r.code}(${r.seats}): ` + [...new Set(state.lessons.filter(l => l.room === r.code).map(l => l.class_code))].map(c => `${c}=${classCount(c)}`).join(",")).join("; ");
+}
+function coverContext(day, away) {
+  const teaching = (t, d, p) => state.lessons.some(l => l.teacher === t && l.day === d && l.period === p);
+  const unavailable = (t, d, p) => (teacherOf(t).unavailable || []).some(([dd, pp]) => dd === d && pp === p);
+  const lessons = state.lessons.filter(l => l.day === day && away.includes(l.teacher)).sort((a, b) => a.period - b.period);
+  const out = [`COVER NEEDED on day ${day} (${dayLabel(day)}); away: ${away.join(", ")}.`, "LESSONS TO COVER (period class name room students; other teachers already on it):"];
+  for (const l of lessons) {
+    const others = state.lessons.filter(x => x.class_code === l.class_code && x.day === l.day && x.period === l.period && !away.includes(x.teacher)).map(x => x.teacher);
+    out.push(`P${l.period} ${l.class_code} "${className(l.class_code, l.day)}" ${l.room} ${classCount(l.class_code)} students${others.length ? "; also taught by " + others.join(",") : ""}`);
+  }
+  out.push("FREE TEACHERS per period (code with periods taught that day and duties that day):");
+  for (const p of [...new Set(lessons.map(l => l.period))].sort((a, b) => a - b)) {
+    const free = allTeachers().filter(t => !away.includes(t) && !isAway(day, t) && !teaching(t, day, p) && !unavailable(t, day, p))
+      .map(t => `${t}(${[...new Set(state.lessons.filter(l => l.teacher === t && l.day === day).map(l => l.period))].sort((a, b) => a - b).join(",") || "free all day"}${state.duties.some(x => x.day === day && x.teacher === t) ? ", on duty" : ""})`);
+    out.push(`P${p}: ${free.join(" ") || "nobody"}`);
+  }
+  return out.join("\n");
+}
+function aiContext(withStudents, extra) {
   const periodNames = periods.map(p => `P${p}=${periodLabel(p)}`).join(", ");
   const blocks = BLOCKS.map(b => `${b.short || b.name}: days ${b.days.join(",")}`).join("; ");
   const lines = ["TIMETABLE ROWS (day:period class teacher room year):",
@@ -1612,6 +1674,10 @@ function aiContext(withStudents) {
     out.push("STUDENTS (id name year: classes):", ...Object.entries(byStudent).map(([id, s]) => `${id} ${s.name} ${s.year}: ${s.classes.join(",")}`));
   } else out.push(`STUDENTS: ${students().length} students enrolled (names withheld; tick "Include student names" to send them). Class sizes: ` +
     allClasses().map(c => `${c}=${classCount(c)}`).join(", "));
+  if (extra === "plan") out.push(planContext());
+  if (extra === "duties") out.push(dutyContext());
+  if (extra === "loads") out.push(loadContext());
+  if (extra && extra.startsWith("cover:")) { const [, d, t] = extra.split(":"); out.push(coverContext(Number(d), t.split(","))); }
   return out.filter(Boolean).join("\n");
 }
 // Issue messages name students as "Name (id)"; without consent only the id goes out.
@@ -1621,7 +1687,9 @@ Never invent classes, teachers or rooms. The page has an exact clash checker, so
 \`\`\`json
 {"moves": [{"class": "C07E_1", "from": [1, 5], "to": [2, 6], "room": "G7"}]}
 \`\`\`
-"from" and "to" are [day, period]; "room" and "teacher" are optional (same slot in from and to means a room or teacher change only). Moving a class moves every teacher row it has in that slot. At most 10 moves; say what each fixes.`;
+"from" and "to" are [day, period]; "room" and "teacher" are optional (same slot in from and to means a room or teacher change only). Moving a class moves every teacher row it has in that slot. At most 10 moves; say what each fixes.
+Yard duty assignments go in the same block as {"duties": [{"day": 3, "slot": "Recess", "duty": "Recess top", "teacher": "AA"}]} using the exact slot and duty names given.
+Cover for an absent teacher (a one-day arrangement, not a timetable change) goes as {"covers": [{"class": "C07E_1", "day": 3, "period": 5, "teacher": "BB"}]}, one per lesson, only teachers listed as free for that period, spreading the load; say when nobody is free.`;
 
 async function aiFetch(url, body) {
   const r = await fetch(url, body ? {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)} : undefined);
@@ -1629,10 +1697,43 @@ async function aiFetch(url, body) {
   if (!r.ok) throw new Error((j.error && j.error.message) || `HTTP ${r.status}`);
   return j;
 }
-function parseMoves(text) {
-  const m = text.match(/```json\s*([\s\S]*?)```/i) || text.match(/(\{[\s\S]*"moves"[\s\S]*\})/);
-  if (!m) return null;
-  try { const j = JSON.parse(m[1]); return Array.isArray(j.moves) ? j.moves : null; } catch (e) { return null; }
+function parseSuggestions(text) {
+  const out = {};
+  for (const m of text.matchAll(/```json\s*([\s\S]*?)```/gi)) {
+    try { const j = JSON.parse(m[1]); for (const k of ["moves", "duties", "covers"]) if (Array.isArray(j[k]) && j[k].length) out[k] = (out[k] || []).concat(j[k]); } catch (e) {}
+  }
+  return Object.keys(out).length ? out : null;
+}
+function parseMoves(text) { const s = parseSuggestions(text); return s && s.moves ? s.moves : null; }
+function previewDuties(list) {
+  const s = clone(state), results = [], count = t => s.duties.filter(x => x.teacher === t).length;
+  for (const d of list) {
+    const t = d.teacher, day = Number(d.day), x = teacherOf(t);
+    const why = !DUTY_SLOTS.includes(d.slot) ? `no duty slot "${d.slot}"`
+      : !dutyRows().some(r => r[0] === d.slot && r[1] === d.duty) ? `no duty "${d.duty}" at ${d.slot}`
+      : !days.includes(day) ? `day ${d.day} is not in the cycle`
+      : s.duties.some(r => r.day === day && r.slot === d.slot && r.duty === d.duty) ? "already assigned"
+      : !allTeachers().includes(t) ? `unknown teacher ${t}`
+      : x.no_duties ? `${t} does no duties` : isAway(day, t) ? `${t} is away on day ${day}`
+      : x.max_duties != null && count(t) >= x.max_duties ? `${t} is at their cap of ${x.max_duties}`
+      : s.duties.some(r => r.day === day && r.slot === d.slot && r.teacher === t) ? `${t} already has a ${d.slot} duty that day`
+      : s.lessons.some(l => l.day === day && l.teacher === t && slotConflicts(d.slot).includes(l.period)) ? `${t} teaches during ${d.slot} that day` : "";
+    if (why) { results.push({ok: false, why}); continue; }
+    s.duties.push({day, slot: d.slot, duty: d.duty, teacher: t}); results.push({ok: true});
+  }
+  return {results, state: s};
+}
+function previewCovers(list) {
+  return list.map(c => {
+    const day = Number(c.day), p = Number(c.period), t = c.teacher;
+    const rows = state.lessons.filter(l => l.class_code === c.class && l.day === day && l.period === p);
+    const why = !rows.length ? `${c.class} has no lesson on day ${c.day} P${c.period}`
+      : !allTeachers().includes(t) ? `unknown teacher ${t}`
+      : state.lessons.some(l => l.teacher === t && l.day === day && l.period === p) ? `${t} is teaching then`
+      : isAway(day, t) ? `${t} is away that day`
+      : (teacherOf(t).unavailable || []).some(([dd, pp]) => dd === day && pp === p) ? `${t} is unavailable then` : "";
+    return {ok: !why, why, room: rows.length ? rows[0].room : "", was: rows.map(r => r.teacher).join(",")};
+  });
 }
 // Try the moves on a copy: each becomes {ok, why}; the copy's issues give the after count.
 function previewMoves(moves) {
@@ -1658,8 +1759,21 @@ function applyMoves(moves) {
 }
 function renderAssistant() {
   $("ai-key").value = lsGet(AI_KEY); $("ai-model").value = lsGet(AI_MODEL, AI_DEFAULT_MODEL);
+  if (!$("cover-day").options.length) $("cover-day").innerHTML = days.map(d => `<option value="${d}">${esc(dayLabel(d))}</option>`).join("");
   $("ai-log").innerHTML = aiHistory.length ? aiHistory.map((m, i) => {
-    let html = `<div class="ai-msg ${m.role === "user" ? "user" : m.role === "error" ? "error" : ""}"><div class="who">${m.role === "user" ? "You" : m.role === "error" ? "Error" : "Gemini"}</div>${esc(m.text)}`;
+    let html = `<div class="ai-msg ${m.role === "user" ? "user" : m.role === "error" ? "error" : ""}"><div class="who">${m.role === "model" ? `<span class="tools"><button type="button" data-ai-copy="${i}">Copy</button></span>` : ""}${m.role === "user" ? "You" : m.role === "error" ? "Error" : "Gemini"}</div>${esc(m.text)}`;
+    if (m.sugg && m.sugg.duties) {
+      const pv = previewDuties(m.sugg.duties);
+      html += `<table><tr><th>Day</th><th>Slot</th><th>Duty</th><th>Teacher</th><th>Check</th></tr>` + m.sugg.duties.map((d, j) =>
+        `<tr><td>${esc(dayLabel(Number(d.day)))}</td><td>${esc(d.slot)}</td><td>${esc(d.duty)}</td><td>${esc(d.teacher)}</td><td class="${pv.results[j].ok ? "" : "bad"}">${pv.results[j].ok ? "ok" : esc(pv.results[j].why)}</td></tr>`).join("") + `</table>` +
+        `<p><button type="button" class="primary" data-ai-duties="${i}">Add the ${pv.results.filter(r => r.ok).length} duties that check out</button></p>`;
+    }
+    if (m.sugg && m.sugg.covers) {
+      const pv = previewCovers(m.sugg.covers);
+      html += `<div class="cover-print" id="cover-sheet-${i}"><h3>Cover sheet — ${esc(dayLabel(Number(m.sugg.covers[0].day)))}${CFG.term ? ", " + esc(CFG.term) : ""}</h3><table><tr><th>Period</th><th>Class</th><th>Room</th><th>Usually</th><th>Cover</th><th>Check</th></tr>` + m.sugg.covers.map((c, j) =>
+        `<tr><td>${esc(periodLabel(Number(c.period)))}</td><td>${esc(className(c.class, Number(c.day)))} [${esc(c.class)}]</td><td>${esc(pv[j].room)}</td><td>${esc(pv[j].was)}</td><td><b>${esc(c.teacher)}</b></td><td class="${pv[j].ok ? "" : "bad"}">${pv[j].ok ? "free" : esc(pv[j].why)}</td></tr>`).join("") + `</table></div>` +
+        `<p><button type="button" data-ai-print="${i}">Print cover sheet</button> <small>The timetable itself is not changed.</small></p>`;
+    }
     if (m.moves) {
       const pv = previewMoves(m.moves);
       html += `<table><tr><th>Class</th><th>From</th><th>To</th><th>Room</th><th>Check</th></tr>` + m.moves.map((mv, j) =>
@@ -1669,7 +1783,7 @@ function renderAssistant() {
     return html + "</div>";
   }).join("") : `<p class="note">Gemini sees the timetable rows, the issues list and the settings, with teacher, room and class codes. Student names are not sent unless you tick the box. Its suggestions are checked here before you apply them, and applying is an undoable edit like any other.</p>`;
 }
-async function askGemini(q) {
+async function askGemini(q, extra) {
   const key = $("ai-key").value.trim(), model = $("ai-model").value.trim() || AI_DEFAULT_MODEL;
   if (!key) return alert("Paste your Gemini API key first (kept in this browser only).");
   lsSet(AI_KEY, key); lsSet(AI_MODEL, model);
@@ -1677,20 +1791,38 @@ async function askGemini(q) {
   $("ai-status").textContent = "Asking…"; $("ai-ask").disabled = true;
   try {
     const contents = aiHistory.filter(m => m.role !== "error").map((m, i, arr) =>
-      ({role: m.role, parts: [{text: i === arr.length - 1 ? `DATA\n${aiContext($("ai-students").checked)}\n\nQUESTION\n${m.text}` : m.text}]}));
+      ({role: m.role, parts: [{text: i === arr.length - 1 ? `DATA\n${aiContext($("ai-students").checked, extra)}\n\nQUESTION\n${m.text}` : m.text}]}));
     const j = await aiFetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`,
       {system_instruction: {parts: [{text: AI_SYSTEM}]}, contents});
     const text = ((j.candidates || [])[0] || {}).content ? j.candidates[0].content.parts.map(p => p.text || "").join("") : "(no answer)";
-    aiHistory.push({role: "model", text, moves: parseMoves(text)});
+    aiHistory.push({role: "model", text, moves: parseMoves(text), sugg: parseSuggestions(text)});
   } catch (e) { aiHistory.push({role: "error", text: e.message}); }
   $("ai-status").textContent = ""; $("ai-ask").disabled = false; renderAssistant();
 }
 $("assistant").addEventListener("click", async e => {
   const b = e.target.closest("button"); if (!b) return;
   if (b.id === "ai-ask") { const q = $("ai-q").value.trim(); if (q) { $("ai-q").value = ""; askGemini(q); } }
-  else if (b.dataset.q) { $("ai-q").value = b.dataset.q; askGemini(b.dataset.q); $("ai-q").value = ""; }
+  else if (b.dataset.q) { askGemini(b.dataset.q, b.dataset.extra); $("ai-q").value = ""; }
   else if (b.id === "ai-clear") { aiHistory.length = 0; renderAssistant(); }
   else if (b.dataset.aiApply !== undefined) applyMoves(aiHistory[Number(b.dataset.aiApply)].moves);
+  else if (b.dataset.aiDuties !== undefined) {
+    const pv = previewDuties(aiHistory[Number(b.dataset.aiDuties)].sugg.duties), n = pv.results.filter(r => r.ok).length;
+    if (!n) return alert("None of the suggested duties can be added.");
+    apply(`Added ${n} yard duties suggested by Gemini`, s => { Object.assign(s, pv.state); });
+  }
+  else if (b.dataset.aiPrint !== undefined) {
+    document.body.classList.add("print-cover"); const el = $(`cover-sheet-${b.dataset.aiPrint}`); el.classList.add("printing");
+    window.print(); document.body.classList.remove("print-cover"); el.classList.remove("printing");
+  }
+  else if (b.dataset.aiCopy !== undefined) { navigator.clipboard && navigator.clipboard.writeText(aiHistory[Number(b.dataset.aiCopy)].text); b.textContent = "Copied"; setTimeout(() => { b.textContent = "Copy"; }, 1500); }
+  else if (b.id === "cover-btn") {
+    const away = $("cover-teachers").value.split(/[\s,;]+/).map(x => x.trim()).filter(Boolean), day = Number($("cover-day").value);
+    const known = away.filter(t => allTeachers().includes(t)), unknown = away.filter(t => !allTeachers().includes(t));
+    if (unknown.length) return alert(`Unknown teacher code${unknown.length > 1 ? "s" : ""}: ${unknown.join(", ")}`);
+    if (!known.length) return alert("Enter the codes of the teachers who are away.");
+    if (!state.lessons.some(l => l.day === day && known.includes(l.teacher))) return alert(`${known.join(", ")} ${known.length > 1 ? "have" : "has"} no lessons on ${dayLabel(day)}.`);
+    askGemini(`Arrange cover for ${known.join(", ")} on ${dayLabel(day)} (day ${day}). Use only teachers listed as free for each period, spread the extra lessons fairly (prefer those with lighter days and no duty), and keep a class with its other teacher where one is already on it. Give the arrangement as JSON covers and a one-line note per lesson.`, `cover:${day}:${known.join(",")}`);
+  }
   else if (b.id === "ai-models-btn") {
     const key = $("ai-key").value.trim(); if (!key) return alert("Paste your Gemini API key first.");
     lsSet(AI_KEY, key); $("ai-status").textContent = "Fetching models…";
